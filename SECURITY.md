@@ -25,8 +25,8 @@ The extension has been designed with security best practices:
 
 2. **No Data Storage**: No user data is collected, stored, or transmitted. All component detection happens in-memory with a short-lived cache (1 second TTL).
 
-3. **Limited Scope**: 
-   - Restricted to development domains (localhost, 127.0.0.1, *.local)
+3. **Limited Scope**:
+   - Restricted to development domains (localhost, 127.0.0.1, \*.local)
    - No host permissions for production domains
    - Cannot access sensitive sites or data
 
@@ -45,6 +45,7 @@ The extension has been designed with security best practices:
 ### Framework Detection Safety
 
 The extension accesses framework-specific DevTools hooks:
+
 - `window.__REACT_DEVTOOLS_GLOBAL_HOOK__` (read-only)
 - `node.__vue__` (read-only)
 - `node.__vueParentComponent` (read-only)
