@@ -31,9 +31,6 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Run test coverage
-        run: npm run test:coverage
-
       - name: Validate manifest
         run: |
           node -e "
