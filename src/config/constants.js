@@ -20,7 +20,7 @@ export const PANEL_MARGIN = 10;
 export const TOGGLE_SHORTCUT = {
   altKey: true,
   shiftKey: true,
-  code: 'KeyC'
+  code: 'KeyC',
 };
 
 // Messages
@@ -31,7 +31,7 @@ export const MESSAGE_TYPES = {
   UPDATE_STATE: 'UPDATE_STATE',
   UPDATE_SUCCESS: 'UPDATE_SUCCESS',
   UPDATE_ERROR: 'UPDATE_ERROR',
-  INVALIDATE_CACHE: 'INVALIDATE_CACHE'
+  INVALIDATE_CACHE: 'INVALIDATE_CACHE',
 };
 
 // CSS selectors and classes
@@ -48,7 +48,7 @@ export const CSS_CLASSES = {
   ADD_CLASS: 'add-class',
   ADD_INLINE_STYLE: 'add-inline-style',
   COMPUTED_STYLE_ITEM: 'computed-style-item',
-  EDITABLE_STYLE: 'editable-style'
+  EDITABLE_STYLE: 'editable-style',
 };
 
 // Default expanded sections state
@@ -57,24 +57,54 @@ export const DEFAULT_EXPANDED_SECTIONS = {
   props: false,
   state: false,
   hooks: false,
-  appliedStyles: false
+  appliedStyles: false,
 };
 
 // Known framework components to filter out
 export const KNOWN_FRAMEWORK_COMPONENTS = [
-  'Link', 'Image', 'Script', 'Head', 'ServerRoot', 'HotReload',
-  'Router', 'AppRouter', 'ErrorBoundary', 'Boundary', 'Provider', 'Context'
+  'Link',
+  'Image',
+  'Script',
+  'Head',
+  'ServerRoot',
+  'HotReload',
+  'Router',
+  'AppRouter',
+  'ErrorBoundary',
+  'Boundary',
+  'Provider',
+  'Context',
 ];
 
 // Framework patterns to filter
 export const FRAMEWORK_PATTERNS = [
-  'Fragment', 'Suspense', 'StrictMode', 'Provider', 'Consumer', 
-  'Context', 'Profiler', 'Router', 'AppRouter', 'ErrorBoundary', 
-  'Boundary', 'Handler', 'Root', 'ServerRoot'
+  'Fragment',
+  'Suspense',
+  'StrictMode',
+  'Provider',
+  'Consumer',
+  'Context',
+  'Profiler',
+  'Router',
+  'AppRouter',
+  'ErrorBoundary',
+  'Boundary',
+  'Handler',
+  'Root',
+  'ServerRoot',
 ];
 
 // User code path indicators
-export const USER_CODE_PATHS = ['/app/', '\\app\\', '/src/', '\\src\\', '/components/', '\\components\\', '/pages/', '\\pages\\'];
+export const USER_CODE_PATHS = [
+  '/app/',
+  '\\app\\',
+  '/src/',
+  '\\src\\',
+  '/components/',
+  '\\components\\',
+  '/pages/',
+  '\\pages\\',
+];
 
 // Score thresholds
 export const USER_COMPONENT_SCORE_THRESHOLD = 8;

@@ -2,7 +2,13 @@
  * Overlay creation and management
  */
 
-import { OVERLAY_Z_INDEX, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH, PANEL_MAX_HEIGHT_VH, CSS_CLASSES } from '../config/constants.js';
+import {
+  OVERLAY_Z_INDEX,
+  PANEL_MIN_WIDTH,
+  PANEL_MAX_WIDTH,
+  PANEL_MAX_HEIGHT_VH,
+  CSS_CLASSES,
+} from '../config/constants.js';
 
 /**
  * Create overlay element with panel
@@ -25,7 +31,7 @@ export function createOverlay() {
   const panel = createPanel();
   div.appendChild(panel);
   document.body.appendChild(div);
-  
+
   return div;
 }
 
@@ -47,7 +53,7 @@ export function createReactOverlay() {
     box-sizing: border-box;
   `;
   document.body.appendChild(div);
-  
+
   return div;
 }
 
@@ -81,7 +87,7 @@ function createPanel() {
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.3) rgba(0,0,0,0.2);
   `;
-  
+
   return panel;
 }
 
@@ -92,7 +98,7 @@ function createPanel() {
  */
 export function showOverlay(overlay, element) {
   if (!overlay || !element) return;
-  
+
   const rect = element.getBoundingClientRect();
   overlay.style.display = 'block';
   overlay.style.top = `${rect.top + window.scrollY}px`;
@@ -108,7 +114,7 @@ export function showOverlay(overlay, element) {
  */
 export function showReactOverlay(reactOverlay, element) {
   if (!reactOverlay || !element) return;
-  
+
   const rect = element.getBoundingClientRect();
   reactOverlay.style.display = 'block';
   reactOverlay.style.top = `${rect.top + window.scrollY}px`;

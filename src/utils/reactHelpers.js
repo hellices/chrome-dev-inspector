@@ -2,11 +2,11 @@
  * React-specific utilities for component detection and manipulation
  */
 
-import { 
-  KNOWN_FRAMEWORK_COMPONENTS, 
+import {
+  KNOWN_FRAMEWORK_COMPONENTS,
   FRAMEWORK_PATTERNS,
   USER_CODE_PATHS,
-  USER_COMPONENT_SCORE_THRESHOLD 
+  USER_COMPONENT_SCORE_THRESHOLD,
 } from '../config/constants.js';
 
 /**
@@ -16,7 +16,7 @@ import {
  */
 export function isFromUserCode(fileName) {
   if (!fileName) return false;
-  return USER_CODE_PATHS.some(path => fileName.includes(path));
+  return USER_CODE_PATHS.some((path) => fileName.includes(path));
 }
 
 /**
@@ -25,9 +25,11 @@ export function isFromUserCode(fileName) {
  * @returns {boolean} True if from node_modules
  */
 export function isFromNodeModules(fileName) {
-  return fileName.includes('node_modules') || 
-         fileName.includes('/next/') || 
-         fileName.includes('\\next\\');
+  return (
+    fileName.includes('node_modules') ||
+    fileName.includes('/next/') ||
+    fileName.includes('\\next\\')
+  );
 }
 
 /**
@@ -37,13 +39,15 @@ export function isFromNodeModules(fileName) {
  * @returns {boolean} True if known framework component
  */
 export function isKnownFrameworkComponent(name, fileName = '') {
-  return KNOWN_FRAMEWORK_COMPONENTS.includes(name) || 
-         (name.endsWith('Component') && KNOWN_FRAMEWORK_COMPONENTS.some(fw => name.includes(fw))) ||
-         name.includes('ServerRoot') || 
-         name.includes('HotReload') ||
-         name.includes('AppRouter') ||
-         (name === 'Root' && fileName.includes('next')) ||
-         (name === 'Router' && (fileName.includes('next') || fileName.includes('react-router')));
+  return (
+    KNOWN_FRAMEWORK_COMPONENTS.includes(name) ||
+    (name.endsWith('Component') && KNOWN_FRAMEWORK_COMPONENTS.some((fw) => name.includes(fw))) ||
+    name.includes('ServerRoot') ||
+    name.includes('HotReload') ||
+    name.includes('AppRouter') ||
+    (name === 'Root' && fileName.includes('next')) ||
+    (name === 'Router' && (fileName.includes('next') || fileName.includes('react-router')))
+  );
 }
 
 /**
@@ -53,28 +57,30 @@ export function isKnownFrameworkComponent(name, fileName = '') {
  */
 export function hasFrameworkPattern(name) {
   const pattern = new RegExp(`^(${FRAMEWORK_PATTERNS.join('|')})$`);
-  return pattern.test(name) ||
-         name.includes('Router') ||
-         name.includes('Boundary') ||
-         name.includes('Handler') ||
-         name.includes('Provider') ||
-         name.includes('Context') ||
-         name.includes('Overlay') ||
-         name.includes('DevRoot') ||
-         name.includes('HotReload') ||
-         name.includes('ServerRoot') ||
-         name.includes('Segment') ||
-         name.includes('View') ||
-         name.includes('Scroll') ||
-         name.includes('Focus') ||
-         name.includes('Redirect') ||
-         name.includes('Template') ||
-         name.includes('Fallback') ||
-         name.includes('HTTPAccess') ||
-         name.includes('Loading') ||
-         name.startsWith('Inner') ||
-         name.startsWith('Outer') ||
-         name.startsWith('Render');
+  return (
+    pattern.test(name) ||
+    name.includes('Router') ||
+    name.includes('Boundary') ||
+    name.includes('Handler') ||
+    name.includes('Provider') ||
+    name.includes('Context') ||
+    name.includes('Overlay') ||
+    name.includes('DevRoot') ||
+    name.includes('HotReload') ||
+    name.includes('ServerRoot') ||
+    name.includes('Segment') ||
+    name.includes('View') ||
+    name.includes('Scroll') ||
+    name.includes('Focus') ||
+    name.includes('Redirect') ||
+    name.includes('Template') ||
+    name.includes('Fallback') ||
+    name.includes('HTTPAccess') ||
+    name.includes('Loading') ||
+    name.startsWith('Inner') ||
+    name.startsWith('Outer') ||
+    name.startsWith('Render')
+  );
 }
 
 /**
@@ -88,30 +94,31 @@ export function calculateComponentScore({
   source,
   isKnownFramework,
   hasFrameworkPattern,
-  componentType
+  componentType,
 }) {
   let score = 0;
-  
+
   // Strong negative indicators
   if (isKnownFramework) score -= 10;
   if (hasFrameworkPattern) score -= 5;
   if (isFromNodeModules(fileName)) score -= 10;
   if (fileName.includes('next/dist')) score -= 15;
-  
+
   // Positive indicators
   if (isFromUserCode(fileName) && !isFromNodeModules(fileName)) score += 10;
   if (ownerFileName && ownerFileName.includes('/app/')) score += 5;
-  
-  const hasUserCodePatterns = source.length > 200 || (source.includes('jsx') || source.includes('tsx'));
+
+  const hasUserCodePatterns =
+    source.length > 200 || source.includes('jsx') || source.includes('tsx');
   const isMinified = source.length < 100 && !source.includes('return');
-  
+
   if (hasUserCodePatterns) score += 3;
   if (!isMinified) score += 2;
-  
+
   // Boost score for functional components
   if (componentType.$$typeof || componentType._payload) score += 2;
   if (source.includes('function') || source.includes('=>')) score += 1;
-  
+
   return score;
 }
 
@@ -135,16 +142,16 @@ export function extractHooks(fiber) {
   try {
     const hooks = [];
     let hook = fiber.memoizedState;
-    
+
     while (hook) {
       if (hook.memoizedState !== undefined) {
         hooks.push({
-          value: sanitizeValue(hook.memoizedState)
+          value: sanitizeValue(hook.memoizedState),
         });
       }
       hook = hook.next;
     }
-    
+
     return hooks;
   } catch (e) {
     return [];
@@ -184,9 +191,9 @@ export function sanitizeProps(props) {
   for (const key in props) {
     // Skip symbol keys
     if (typeof key === 'symbol') continue;
-    
+
     const value = props[key];
-    
+
     if (key === 'children') {
       sanitized[key] = typeof value === 'object' ? '[React Children]' : String(value);
     } else if (typeof value === 'function') {
@@ -203,7 +210,11 @@ export function sanitizeProps(props) {
       } catch (e) {
         sanitized[key] = '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
       }
-    } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    } else if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
       sanitized[key] = value;
     } else {
       sanitized[key] = String(value);

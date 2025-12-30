@@ -35,10 +35,10 @@ describe('Required Files', () => {
       'cssHelper.js',
       'formatters.js',
       'htmlHelpers.js',
-      'frameworkDetect.js'
+      'frameworkDetect.js',
     ];
 
-    utilFiles.forEach(file => {
+    utilFiles.forEach((file) => {
       const filePath = path.join(rootDir, 'src', 'utils', file);
       expect(fs.existsSync(filePath)).toBe(true);
     });
@@ -49,10 +49,10 @@ describe('Required Files', () => {
       'overlayManager.js',
       'eventHandlers.js',
       'advancedHandlers.js',
-      'cssFormatter.js'
+      'cssFormatter.js',
     ];
 
-    overlayFiles.forEach(file => {
+    overlayFiles.forEach((file) => {
       const filePath = path.join(rootDir, 'src', 'overlay', file);
       expect(fs.existsSync(filePath)).toBe(true);
     });
@@ -60,8 +60,8 @@ describe('Required Files', () => {
 
   test('icons exist', () => {
     const icons = ['icon16.png', 'icon48.png', 'icon128.png'];
-    
-    icons.forEach(icon => {
+
+    icons.forEach((icon) => {
       const iconPath = path.join(rootDir, 'icons', icon);
       expect(fs.existsSync(iconPath)).toBe(true);
     });

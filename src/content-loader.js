@@ -1,7 +1,7 @@
 /**
  * Content script loader - dynamically imports the main module
  */
-(async function() {
+(async function () {
   try {
     const moduleUrl = chrome.runtime.getURL('src/content.js');
     await import(moduleUrl);

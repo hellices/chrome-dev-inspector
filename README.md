@@ -14,28 +14,33 @@ A Chrome extension that provides real-time component inspection for modern web f
 ## Features
 
 ### Instant Inspection
+
 Point at any element to see its component details—no clicking, no DevTools panel switching.
 
 ### Framework-Aware
+
 - **React**: Component tree, props, state, hooks (with live editing)
 - **Vue**: Component hierarchy and reactive data
 - **Angular**: Component metadata
 - **Plain HTML**: DOM structure, attributes, styles
 
 ### Live Editing
+
 - Modify hook values and state directly in the overlay
 - Toggle CSS classes and styles with one click
 - Add new classes and inline styles on the fly
 - Disable computed styles to test layout changes
 
 ### Flexible Modes
+
 Switch between Auto (framework detection), React, HTML, Vue, or Angular modes depending on your needs.
 
 ### Keyboard Shortcuts
+
 - `Alt+Shift+C` — Toggle inspector
 - `Alt+Shift+M` — Open mode selector
 - `Alt+Click` — Pin overlay  
-  💡 *Tip: Use Alt+Shift+C to toggle • Alt+Shift+M for menu • Alt+Click to unpin*
+  💡 _Tip: Use Alt+Shift+C to toggle • Alt+Shift+M for menu • Alt+Click to unpin_
 
 ## Installation
 
@@ -64,6 +69,7 @@ Hover over any element on your page. A panel appears with component information.
 ### Mode Selection
 
 Press `Alt+Shift+M` to open the mode selector:
+
 - **Auto**: Detects frameworks automatically
 - **React**: React components only
 - **HTML**: Raw DOM inspection
@@ -72,11 +78,13 @@ Press `Alt+Shift+M` to open the mode selector:
 ### Editing
 
 **React Mode:**
+
 - Click state/hook values to edit (Enter to save, Esc to cancel)
 - Click class names to toggle them
 - Click inline styles to disable/enable
 
 **HTML Mode:**
+
 - Click text content to edit
 - Click attribute values to modify
 - Toggle classes and styles same as React mode
@@ -88,6 +96,7 @@ Press `Alt+Shift+M` to open the mode selector:
 ## Screenshots
 
 **React Component Inspection**
+
 ```
 ⚛️ MovieCard (User Component)
 Hierarchy: App → MovieList → MovieCard
@@ -112,6 +121,7 @@ Computed Styles (5) ✏️
 ```
 
 **HTML Mode**
+
 ```
 📄 DIV
 Parent: main.container → section.content

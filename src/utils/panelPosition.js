@@ -16,25 +16,25 @@ export function calculatePanelPosition(mouseX, mouseY, panelRect) {
   let panelHeight = panelRect.height || 600;
   const margin = PANEL_MARGIN;
   const maxHeight = window.innerHeight - margin * 2;
-  
+
   // Limit panel height to viewport
   if (panelHeight > maxHeight) {
     panelHeight = maxHeight;
   }
-  
+
   let left = mouseX + PANEL_SPACING;
   let top = mouseY - 20; // Slightly above mouse cursor
-  
+
   // If not enough space on right, show on left
   if (left + panelWidth > window.innerWidth - margin) {
     left = mouseX - panelWidth - PANEL_SPACING;
   }
-  
+
   // Keep left within bounds
   if (left < margin) {
     left = margin;
   }
-  
+
   // Keep top within bounds - if not enough space below, show above
   if (top + panelHeight > window.innerHeight - margin) {
     // Try to position above mouse cursor
@@ -46,11 +46,11 @@ export function calculatePanelPosition(mouseX, mouseY, panelRect) {
       top = margin;
     }
   }
-  
+
   if (top < margin) {
     top = margin;
   }
-  
+
   return { left, top };
 }
 
@@ -61,13 +61,13 @@ export function calculatePanelPosition(mouseX, mouseY, panelRect) {
 export function adjustPanelPosition(panel) {
   const panelRect = panel.getBoundingClientRect();
   const margin = PANEL_MARGIN;
-  
+
   // Check if panel is cut off at bottom
   if (panelRect.bottom > window.innerHeight - margin) {
     let newTop = parseInt(panel.style.top) || 0;
     const overflow = panelRect.bottom - (window.innerHeight - margin);
     newTop = newTop - overflow - 20; // Extra 20px buffer
-    
+
     // Make sure it doesn't go above viewport
     if (newTop < margin) {
       newTop = margin;
@@ -75,7 +75,7 @@ export function adjustPanelPosition(panel) {
       panel.style.maxHeight = `${maxHeight}px`;
       panel.style.overflowY = 'auto';
     }
-    
+
     panel.style.top = `${newTop}px`;
   }
 }
@@ -90,7 +90,7 @@ export function applyPanelPosition(panel, position, isPinned = false) {
   panel.style.left = `${position.left}px`;
   panel.style.top = `${position.top}px`;
   panel.style.transform = 'none';
-  
+
   if (isPinned) {
     panel.style.transition = 'border 0.2s ease';
     panel.style.border = '2px solid #4caf50';

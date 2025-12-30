@@ -65,13 +65,8 @@ export function injectScript(scriptUrl) {
 export function findElementByXPath(xpath) {
   try {
     if (xpath) {
-      return document.evaluate(
-        xpath,
-        document,
-        null,
-        XPathResult.FIRST_ORDERED_NODE_TYPE,
-        null
-      ).singleNodeValue;
+      return document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
+        .singleNodeValue;
     }
   } catch (e) {
     console.error('Error resolving element:', e);

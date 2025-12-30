@@ -4,8 +4,18 @@
 
 import { CSS_CLASSES } from '../config/constants.js';
 import { getXPath } from '../utils/domHelpers.js';
-import { invalidateCache, requestComponentInfo, updateHook, updateState } from '../utils/messageHandler.js';
-import { toggleClass, applyInlineStyle, removeInlineStyle, getDisabledValue } from '../utils/cssHelper.js';
+import {
+  invalidateCache,
+  requestComponentInfo,
+  updateHook,
+  updateState,
+} from '../utils/messageHandler.js';
+import {
+  toggleClass,
+  applyInlineStyle,
+  removeInlineStyle,
+  getDisabledValue,
+} from '../utils/cssHelper.js';
 
 /**
  * Setup editable hook handlers
@@ -13,12 +23,12 @@ import { toggleClass, applyInlineStyle, removeInlineStyle, getDisabledValue } fr
  * @param {HTMLElement} element - Target element
  */
 export function setupEditableHookHandlers(panel, element) {
-  panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_HOOK}`).forEach(span => {
+  panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_HOOK}`).forEach((span) => {
     span.setAttribute('contenteditable', 'true');
     span.setAttribute('spellcheck', 'false');
-    
+
     const originalValue = span.textContent;
-    
+
     span.onfocus = (e) => {
       e.stopPropagation();
       span.style.background = 'rgba(76,175,80,0.5)';
@@ -26,19 +36,19 @@ export function setupEditableHookHandlers(panel, element) {
       span.style.boxShadow = '0 0 8px rgba(76,175,80,0.4)';
       selectAllText(span);
     };
-    
+
     span.onblur = (e) => {
       span.style.background = 'rgba(102,187,106,0.1)';
       span.style.outline = 'none';
       span.style.boxShadow = 'none';
-      
+
       const newValue = span.textContent.trim();
       if (newValue !== originalValue) {
         const hookIndex = parseInt(span.getAttribute('data-hook-index'));
         updateHook(element, hookIndex, newValue);
       }
     };
-    
+
     span.onkeydown = (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -51,7 +61,7 @@ export function setupEditableHookHandlers(panel, element) {
       }
       e.stopPropagation();
     };
-    
+
     span.onclick = (e) => e.stopPropagation();
   });
 }
@@ -62,12 +72,12 @@ export function setupEditableHookHandlers(panel, element) {
  * @param {HTMLElement} element - Target element
  */
 export function setupEditableStateHandlers(panel, element) {
-  panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_STATE}`).forEach(div => {
+  panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_STATE}`).forEach((div) => {
     div.setAttribute('contenteditable', 'true');
     div.setAttribute('spellcheck', 'false');
-    
+
     const originalValue = div.textContent;
-    
+
     div.onfocus = (e) => {
       e.stopPropagation();
       div.style.background = 'rgba(171,71,188,0.5)';
@@ -75,19 +85,19 @@ export function setupEditableStateHandlers(panel, element) {
       div.style.boxShadow = '0 0 8px rgba(171,71,188,0.4)';
       selectAllText(div);
     };
-    
+
     div.onblur = (e) => {
       div.style.background = 'rgba(0,0,0,0.3)';
       div.style.outline = 'none';
       div.style.boxShadow = 'none';
-      
+
       const newValue = div.textContent.trim();
       if (newValue !== originalValue) {
         const stateKey = div.getAttribute('data-state-key');
         updateState(element, stateKey, newValue);
       }
     };
-    
+
     div.onkeydown = (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -100,7 +110,7 @@ export function setupEditableStateHandlers(panel, element) {
       }
       e.stopPropagation();
     };
-    
+
     div.onclick = (e) => e.stopPropagation();
   });
 }
@@ -114,20 +124,20 @@ export function setupEditableStateHandlers(panel, element) {
 export function setupClassToggleHandlers(panel, element, refreshCallback) {
   // Support both old and new class names
   const selectors = [`.${CSS_CLASSES.TOGGLE_CLASS}`, '.hovercomp-toggle-class'];
-  selectors.forEach(selector => {
-    panel.querySelectorAll(selector).forEach(span => {
+  selectors.forEach((selector) => {
+    panel.querySelectorAll(selector).forEach((span) => {
       span.onclick = (e) => {
         e.stopPropagation();
         const className = span.getAttribute('data-class');
         const isActive = span.getAttribute('data-active') === 'true';
-        
+
         toggleClass(element, className, !isActive);
-        
+
         span.setAttribute('data-active', (!isActive).toString());
         span.style.textDecoration = isActive ? 'line-through' : 'none';
         span.style.opacity = isActive ? '0.5' : '1';
         span.style.background = isActive ? 'rgba(255,255,255,0.05)' : 'rgba(66,165,245,0.2)';
-        
+
         // Update checkmark for new style
         if (selector === '.hovercomp-toggle-class') {
           const text = span.textContent;
@@ -140,8 +150,8 @@ export function setupClassToggleHandlers(panel, element, refreshCallback) {
       };
     });
   });
-  
-  panel.querySelectorAll(`.${CSS_CLASSES.DELETE_CLASS}`).forEach(deleteBtn => {
+
+  panel.querySelectorAll(`.${CSS_CLASSES.DELETE_CLASS}`).forEach((deleteBtn) => {
     deleteBtn.onclick = (e) => {
       e.stopPropagation();
       const className = deleteBtn.getAttribute('data-class');
@@ -159,14 +169,15 @@ export function setupClassToggleHandlers(panel, element, refreshCallback) {
  * @param {Function} refreshCallback - Callback to refresh overlay
  */
 export function setupStyleToggleHandlers(panel, element, refreshCallback) {
-  panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_STYLE}`).forEach(span => {
+  panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_STYLE}`).forEach((span) => {
     span.onclick = (e) => {
       e.stopPropagation();
       const styleProp = span.getAttribute('data-style-prop');
       const styleValue = span.getAttribute('data-style-value');
       const isActive = span.getAttribute('data-active') === 'true';
-      const isImportant = span.getAttribute('data-use-important') === 'true' || styleValue.includes('!important');
-      
+      const isImportant =
+        span.getAttribute('data-use-important') === 'true' || styleValue.includes('!important');
+
       if (isActive) {
         removeInlineStyle(element, styleProp);
         span.setAttribute('data-active', 'false');
@@ -181,16 +192,17 @@ export function setupStyleToggleHandlers(panel, element, refreshCallback) {
         span.style.background = 'rgba(144,202,249,0.2)';
       }
     };
-    
+
     // Right-click to toggle !important
     span.oncontextmenu = (e) => {
       e.preventDefault();
       e.stopPropagation();
       const styleProp = span.getAttribute('data-style-prop');
       const styleValue = span.getAttribute('data-style-value');
-      const isImportant = span.getAttribute('data-use-important') === 'true' || styleValue.includes('!important');
+      const isImportant =
+        span.getAttribute('data-use-important') === 'true' || styleValue.includes('!important');
       const cleanValue = styleValue.replace('!important', '').trim();
-      
+
       if (isImportant) {
         element.style.setProperty(styleProp, cleanValue);
         span.setAttribute('data-use-important', 'false');
@@ -210,8 +222,8 @@ export function setupStyleToggleHandlers(panel, element, refreshCallback) {
       }
     };
   });
-  
-  panel.querySelectorAll(`.${CSS_CLASSES.DELETE_STYLE}`).forEach(deleteBtn => {
+
+  panel.querySelectorAll(`.${CSS_CLASSES.DELETE_STYLE}`).forEach((deleteBtn) => {
     deleteBtn.onclick = (e) => {
       e.stopPropagation();
       const styleProp = deleteBtn.getAttribute('data-style-prop');
@@ -230,14 +242,14 @@ export function setupStyleToggleHandlers(panel, element, refreshCallback) {
 export function setupComputedStyleHandlers(panel, element) {
   // Support both old and new class names
   const selectors = [`.${CSS_CLASSES.COMPUTED_STYLE_ITEM}`, '.hovercomp-computed-style-item'];
-  selectors.forEach(selector => {
-    panel.querySelectorAll(selector).forEach(item => {
+  selectors.forEach((selector) => {
+    panel.querySelectorAll(selector).forEach((item) => {
       item.onclick = (e) => {
         e.stopPropagation();
         const styleProp = item.getAttribute('data-style-prop');
         const styleValue = item.getAttribute('data-style-value');
         const isActive = item.getAttribute('data-active') === 'true';
-        
+
         if (isActive) {
           // Disable by setting to opposite or neutral value with !important
           const disabledValue = getDisabledValue(styleProp);
@@ -253,7 +265,8 @@ export function setupComputedStyleHandlers(panel, element) {
           item.setAttribute('data-active', 'true');
           item.style.textDecoration = 'none';
           item.style.opacity = '1';
-          item.style.background = selector === '.hovercomp-computed-style-item' ? 'rgba(77,182,172,0.2)' : 'transparent';
+          item.style.background =
+            selector === '.hovercomp-computed-style-item' ? 'rgba(77,182,172,0.2)' : 'transparent';
         }
       };
     });
@@ -267,17 +280,20 @@ export function setupComputedStyleHandlers(panel, element) {
  * @param {Function} adjustPositionCallback - Callback to adjust panel position
  */
 export function setupToggleSectionHandlers(panel, expandedSections, adjustPositionCallback) {
-  panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_SECTION}`).forEach(toggle => {
+  panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_SECTION}`).forEach((toggle) => {
     toggle.style.cursor = 'pointer';
     toggle.onclick = (e) => {
       e.stopPropagation();
       const content = toggle.nextElementSibling;
       const isCollapsed = content.style.display === 'none';
       content.style.display = isCollapsed ? 'block' : 'none';
-      toggle.textContent = toggle.textContent.replace(isCollapsed ? '▶' : '▼', isCollapsed ? '▼' : '▶');
-      
+      toggle.textContent = toggle.textContent.replace(
+        isCollapsed ? '▶' : '▼',
+        isCollapsed ? '▼' : '▶'
+      );
+
       updateExpandedSectionsState(toggle, isCollapsed, expandedSections);
-      
+
       if (isCollapsed) {
         setTimeout(() => adjustPositionCallback(), 10);
       }
@@ -304,16 +320,17 @@ function updateExpandedSectionsState(toggle, isExpanded, expandedSections) {
  */
 export function restoreExpandedSections(panel, expandedSections) {
   setTimeout(() => {
-    panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_SECTION}`).forEach(toggle => {
+    panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_SECTION}`).forEach((toggle) => {
       const sectionText = toggle.textContent.toLowerCase();
       let shouldExpand = false;
-      
+
       if (sectionText.includes('css') && expandedSections.css) shouldExpand = true;
       else if (sectionText.includes('props') && expandedSections.props) shouldExpand = true;
       else if (sectionText.includes('state') && expandedSections.state) shouldExpand = true;
       else if (sectionText.includes('hooks') && expandedSections.hooks) shouldExpand = true;
-      else if (sectionText.includes('applied') && expandedSections.appliedStyles) shouldExpand = true;
-      
+      else if (sectionText.includes('applied') && expandedSections.appliedStyles)
+        shouldExpand = true;
+
       if (shouldExpand) {
         const content = toggle.nextElementSibling;
         if (content && content.style.display === 'none') {
@@ -372,7 +389,7 @@ export function setupEditableTextContentHandler(panel, element) {
     textContentDiv.setAttribute('contenteditable', 'false');
     textContentDiv.style.background = 'rgba(0,0,0,0.3)';
     textContentDiv.style.outline = 'none';
-    
+
     const newValue = textContentDiv.textContent;
     if (newValue !== originalValue) {
       element.textContent = newValue;
@@ -400,7 +417,7 @@ export function setupEditableTextContentHandler(panel, element) {
  * @param {Function} refreshOverlay - Callback to refresh overlay
  */
 export function setupEditableAttributeHandlers(panel, element, refreshOverlay) {
-  panel.querySelectorAll('[data-editable-attribute]').forEach(attrDiv => {
+  panel.querySelectorAll('[data-editable-attribute]').forEach((attrDiv) => {
     const attrName = attrDiv.getAttribute('data-attribute-name');
     const originalValue = element.getAttribute(attrName) || '';
 
@@ -424,7 +441,7 @@ export function setupEditableAttributeHandlers(panel, element, refreshOverlay) {
       attrDiv.setAttribute('contenteditable', 'false');
       attrDiv.style.background = 'transparent';
       attrDiv.style.outline = 'none';
-      
+
       const newValue = attrDiv.textContent.trim().replace(/^"|"$/g, ''); // Remove quotes
       if (newValue !== originalValue) {
         if (newValue === '') {

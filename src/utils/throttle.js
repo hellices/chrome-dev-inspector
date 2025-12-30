@@ -5,7 +5,7 @@
  * @param {Function} func - The function to throttle
  * @param {number} wait - The number of milliseconds to throttle invocations to
  * @returns {Function} Returns the new throttled function
- * 
+ *
  * @example
  * const throttledScroll = throttle(() => {
  *   console.log('Scroll event');
@@ -44,7 +44,7 @@ export function throttle(func, wait) {
  * @param {Function} func - The function to debounce
  * @param {number} wait - The number of milliseconds to delay
  * @returns {Function} Returns the new debounced function
- * 
+ *
  * @example
  * const debouncedInput = debounce((value) => {
  *   console.log('Input value:', value);

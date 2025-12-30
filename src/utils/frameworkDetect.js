@@ -12,7 +12,7 @@ import {
   isUserComponent as checkIsUserComponent,
   extractHooks,
   sanitizeValue,
-  sanitizeProps
+  sanitizeProps,
 } from './reactHelpers.js';
 
 /**
@@ -35,10 +35,10 @@ export function detectReact(node) {
 
     let fiber = node[fiberKey];
     let componentHierarchy = [];
-    
+
     while (fiber) {
       const componentType = fiber.type;
-      
+
       // Skip if type is null/undefined
       if (!componentType) {
         fiber = fiber.return;
@@ -54,60 +54,78 @@ export function detectReact(node) {
       // Skip built-in types
       if (typeof componentType === 'function') {
         const name = componentType.displayName || componentType.name;
-        
+
         // Filter out primitives and built-in React types
-        if (name && 
-            name !== 'Anonymous' && 
-            name !== 'String' && 
-            name !== 'Number' && 
-            name !== 'Boolean' &&
-            !name.startsWith('_') &&
-            name.length > 0) {
-          
+        if (
+          name &&
+          name !== 'Anonymous' &&
+          name !== 'String' &&
+          name !== 'Number' &&
+          name !== 'Boolean' &&
+          !name.startsWith('_') &&
+          name.length > 0
+        ) {
           // Better detection: Check file path from source location
           const debugSource = fiber._debugSource || componentType.__source;
           const debugOwner = fiber._debugOwner;
           const fileName = debugSource?.fileName || componentType._source?.fileName || '';
-          
+
           // Check owner's file path
           let ownerFileName = '';
           if (debugOwner && debugOwner.type) {
             const ownerSource = debugOwner._debugSource || debugOwner.type.__source;
             ownerFileName = ownerSource?.fileName || '';
           }
-          
+
           // Check if it's a user component based on file path
-          const isFromNodeModules = fileName.includes('node_modules') || fileName.includes('/next/') || fileName.includes('\\next\\');
-          const isFromUserCode = fileName && (
-            fileName.includes('/app/') || 
-            fileName.includes('\\app\\') ||
-            fileName.includes('/src/') || 
-            fileName.includes('\\src\\') ||
-            fileName.includes('/components/') || 
-            fileName.includes('\\components\\') ||
-            fileName.includes('/pages/') || 
-            fileName.includes('\\pages\\')
-          );
-          
+          const isFromNodeModules =
+            fileName.includes('node_modules') ||
+            fileName.includes('/next/') ||
+            fileName.includes('\\next\\');
+          const isFromUserCode =
+            fileName &&
+            (fileName.includes('/app/') ||
+              fileName.includes('\\app\\') ||
+              fileName.includes('/src/') ||
+              fileName.includes('\\src\\') ||
+              fileName.includes('/components/') ||
+              fileName.includes('\\components\\') ||
+              fileName.includes('/pages/') ||
+              fileName.includes('\\pages\\'));
+
           // Function source check
           const source = componentType.toString();
-          const hasUserCodePatterns = source.length > 200 || (source.includes('jsx') || source.includes('tsx'));
+          const hasUserCodePatterns =
+            source.length > 200 || source.includes('jsx') || source.includes('tsx');
           const isMinified = source.length < 100 && !source.includes('return');
-          
+
           // Known framework components
           const knownFrameworkComponents = [
-            'Link', 'Image', 'Script', 'Head', 'ServerRoot', 'HotReload',
-            'Router', 'ErrorBoundary', 'Boundary', 'Provider', 'Context'
+            'Link',
+            'Image',
+            'Script',
+            'Head',
+            'ServerRoot',
+            'HotReload',
+            'Router',
+            'ErrorBoundary',
+            'Boundary',
+            'Provider',
+            'Context',
           ];
-          const isKnownFramework = knownFrameworkComponents.includes(name) || 
-                                   name.endsWith('Component') && knownFrameworkComponents.some(fw => name.includes(fw)) ||
-                                   name.includes('ServerRoot') || 
-                                   name.includes('HotReload') ||
-                                   name === 'Root' && fileName.includes('next');
-          
+          const isKnownFramework =
+            knownFrameworkComponents.includes(name) ||
+            (name.endsWith('Component') &&
+              knownFrameworkComponents.some((fw) => name.includes(fw))) ||
+            name.includes('ServerRoot') ||
+            name.includes('HotReload') ||
+            (name === 'Root' && fileName.includes('next'));
+
           // Name-based filtering
-          const hasFrameworkPattern = 
-            name.match(/^(Fragment|Suspense|StrictMode|Provider|Consumer|Context|Profiler|Router|ErrorBoundary|Boundary|Handler|Root|ServerRoot)$/) ||
+          const hasFrameworkPattern =
+            name.match(
+              /^(Fragment|Suspense|StrictMode|Provider|Consumer|Context|Profiler|Router|ErrorBoundary|Boundary|Handler|Root|ServerRoot)$/
+            ) ||
             name.includes('Router') ||
             name.includes('Boundary') ||
             name.includes('Handler') ||
@@ -129,7 +147,7 @@ export function detectReact(node) {
             name.startsWith('Inner') ||
             name.startsWith('Outer') ||
             name.startsWith('Render');
-          
+
           // Calculate score
           let score = 0;
           if (isFromUserCode && !isFromNodeModules) score += 10;
@@ -140,13 +158,13 @@ export function detectReact(node) {
           if (!hasFrameworkPattern) score += 3;
           if (componentType.$$typeof || componentType._payload) score += 2;
           if (source.includes('function') || source.includes('=>')) score += 1;
-          
+
           const isUserComponent = score >= 8;
-          
+
           // Extract detailed information
           const props = fiber.memoizedProps || {};
           const state = fiber.memoizedState;
-          
+
           const componentInfo = {
             name,
             isUserComponent,
@@ -156,38 +174,38 @@ export function detectReact(node) {
             source: debugSource || componentType._source || null,
             fileName: fileName,
             ownerFileName: ownerFileName,
-            fiber: fiber
+            fiber: fiber,
           };
-          
+
           componentHierarchy.push(componentInfo);
         }
       }
-      
+
       fiber = fiber.return;
     }
-    
+
     // Return the outermost user component (the one wrapping others)
     // Reverse the array since we traverse from child to parent
-    const userComponents = componentHierarchy.filter(c => c.isUserComponent);
-    
+    const userComponents = componentHierarchy.filter((c) => c.isUserComponent);
+
     // Prefer the last user component (outermost/parent) that wraps the DOM element
     // This shows MovieCard instead of Link when MovieCard wraps Link
     const targetComponent = userComponents[userComponents.length - 1] || componentHierarchy[0];
-    
+
     if (targetComponent) {
       // Filter hierarchy to show only user components or key library components
       const filteredHierarchy = componentHierarchy
-        .filter(c => c.isUserComponent || c.name.match(/^(App|Layout|Page|Document|Main)$/))
-        .map(c => c.name);
-      
+        .filter((c) => c.isUserComponent || c.name.match(/^(App|Layout|Page|Document|Main)$/))
+        .map((c) => c.name);
+
       return {
         framework: 'React',
         name: targetComponent.name,
         detail: targetComponent.source?.fileName || '',
         isUserComponent: targetComponent.isUserComponent,
         hierarchy: filteredHierarchy.length > 0 ? filteredHierarchy : [targetComponent.name],
-        allUserComponents: userComponents.map(c => c.name),
-        fileName: targetComponent.fileName
+        allUserComponents: userComponents.map((c) => c.name),
+        fileName: targetComponent.fileName,
       };
     }
   } catch (e) {

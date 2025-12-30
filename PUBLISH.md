@@ -40,7 +40,8 @@
 6. "Create" 클릭
 7. **Client ID와 Client Secret 복사 및 안전하게 보관**
 
-> ⚠️ **중요**: 
+> ⚠️ **중요**:
+>
 > - 공식 문서에 따르면 **"Web application"** 타입 사용 (2025년 12월 기준)
 > - Client Secret은 생성 시점에만 전체 값을 볼 수 있습니다
 
@@ -93,12 +94,14 @@ GitHub 저장소의 Settings → Secrets and variables → Actions에서 다음 
 ### 자동 배포 (권장)
 
 1. 버전 업데이트:
+
    ```bash
    # package.json과 manifest.json의 version을 동일하게 변경
    npm version patch  # 또는 minor, major
    ```
 
 2. 태그로 배포:
+
    ```bash
    git add .
    git commit -m "Release v0.1.0"
@@ -125,11 +128,13 @@ GitHub Actions 페이지에서 "Publish to Chrome Web Store" workflow를 수동�
 ## 워크플로우
 
 ### Test Workflow (`.github/workflows/test.yml`)
+
 - main, develop 브랜치 push 시 자동 실행
 - Pull Request 시 자동 실행
 - Lint, 테스트, 버전 검증 수행
 
 ### Publish Workflow (`.github/workflows/publish.yml`)
+
 - `v*` 태그 push 시 자동 실행
 - 수동 실행 가능
 - 테스트 → 패키징 → 배포 → Release 생성
@@ -137,12 +142,15 @@ GitHub Actions 페이지에서 "Publish to Chrome Web Store" workflow를 수동�
 ## 문제 해결
 
 ### "Invalid refresh token" 오류
+
 - Refresh Token을 다시 생성하고 GitHub Secrets 업데이트
 
 ### "Extension ID not found" 오류
+
 - Chrome Web Store에서 Extension ID를 확인하고 Secrets 업데이트
 
 ### 버전 불일치 오류
+
 - `manifest.json`과 `package.json`의 version 값을 동일하게 수정
 
 ## 참고 자료

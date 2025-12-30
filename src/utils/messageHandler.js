@@ -14,19 +14,19 @@ import { getXPath, findElementByXPath } from './domHelpers.js';
 export function createContentMessageHandler(updateOverlayCallback, getCurrentTarget) {
   return function handleMessage(event) {
     if (event.source !== window) return;
-    
+
     const { type, data } = event.data;
-    
+
     switch (type) {
       case MESSAGE_TYPES.COMPONENT_INFO_RESPONSE:
         handleComponentInfoResponse(event.data, updateOverlayCallback, getCurrentTarget);
         break;
-        
+
       case MESSAGE_TYPES.UPDATE_SUCCESS:
         console.log('[HoverComp] Value updated successfully');
         refreshOverlay(getCurrentTarget);
         break;
-        
+
       case MESSAGE_TYPES.UPDATE_ERROR:
         console.error('[HoverComp] Update failed:', event.data.error);
         break;
@@ -37,7 +37,11 @@ export function createContentMessageHandler(updateOverlayCallback, getCurrentTar
 /**
  * Handle component info response
  */
-function handleComponentInfoResponse({ componentInfo, reactComponentXPath }, updateOverlayCallback, getCurrentTarget) {
+function handleComponentInfoResponse(
+  { componentInfo, reactComponentXPath },
+  updateOverlayCallback,
+  getCurrentTarget
+) {
   const currentTarget = getCurrentTarget();
   if (currentTarget) {
     const mouseX = currentTarget._mouseX || null;

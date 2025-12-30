@@ -9,12 +9,12 @@
  */
 export function getCSSInfo(element) {
   const styles = window.getComputedStyle(element);
-  
+
   return {
     classes: Array.from(element.classList),
     styles: getComputedStyles(styles),
     inlineStyles: element.style.cssText || '',
-    matchedRules: getMatchedCSSRules(element)
+    matchedRules: getMatchedCSSRules(element),
   };
 }
 
@@ -51,7 +51,7 @@ function getComputedStyles(styles) {
     cursor: styles.cursor || '',
     pointerEvents: styles.pointerEvents || '',
     transform: styles.transform || '',
-    transition: styles.transition || ''
+    transition: styles.transition || '',
   };
 }
 
@@ -62,7 +62,7 @@ function getComputedStyles(styles) {
  */
 function getMatchedCSSRules(element) {
   const matchedRules = [];
-  
+
   try {
     for (const sheet of document.styleSheets) {
       try {
@@ -71,7 +71,7 @@ function getMatchedCSSRules(element) {
             matchedRules.push({
               selector: rule.selectorText,
               source: sheet.href || 'inline',
-              styles: rule.style.cssText
+              styles: rule.style.cssText,
             });
           }
         }
@@ -82,7 +82,7 @@ function getMatchedCSSRules(element) {
   } catch (e) {
     // Silent fail
   }
-  
+
   return matchedRules;
 }
 
@@ -133,9 +133,11 @@ export function getAllCSSProperties() {
   const dummyElement = document.createElement('div');
   document.body.appendChild(dummyElement);
   const computedStyle = window.getComputedStyle(dummyElement);
-  const allCssProperties = Array.from(computedStyle).filter(prop => 
-    !prop.startsWith('webkit') && !prop.startsWith('moz') && !prop.startsWith('ms')
-  ).sort();
+  const allCssProperties = Array.from(computedStyle)
+    .filter(
+      (prop) => !prop.startsWith('webkit') && !prop.startsWith('moz') && !prop.startsWith('ms')
+    )
+    .sort();
   document.body.removeChild(dummyElement);
   return allCssProperties;
 }
@@ -147,34 +149,100 @@ export function getAllCSSProperties() {
  */
 export function getCommonCSSValues(property) {
   const commonValues = {
-    'display': ['none', 'block', 'inline', 'inline-block', 'flex', 'grid', 'inline-flex', 'inline-grid', 'contents', 'flow-root'],
-    'position': ['static', 'relative', 'absolute', 'fixed', 'sticky'],
+    display: [
+      'none',
+      'block',
+      'inline',
+      'inline-block',
+      'flex',
+      'grid',
+      'inline-flex',
+      'inline-grid',
+      'contents',
+      'flow-root',
+    ],
+    position: ['static', 'relative', 'absolute', 'fixed', 'sticky'],
     'flex-direction': ['row', 'column', 'row-reverse', 'column-reverse'],
-    'justify-content': ['flex-start', 'flex-end', 'center', 'space-between', 'space-around', 'space-evenly', 'stretch'],
+    'justify-content': [
+      'flex-start',
+      'flex-end',
+      'center',
+      'space-between',
+      'space-around',
+      'space-evenly',
+      'stretch',
+    ],
     'align-items': ['flex-start', 'flex-end', 'center', 'baseline', 'stretch'],
     'text-align': ['left', 'center', 'right', 'justify', 'start', 'end'],
-    'cursor': ['auto', 'default', 'pointer', 'grab', 'grabbing', 'move', 'text', 'wait', 'help', 'not-allowed', 'crosshair'],
-    'overflow': ['visible', 'hidden', 'scroll', 'auto', 'clip'],
+    cursor: [
+      'auto',
+      'default',
+      'pointer',
+      'grab',
+      'grabbing',
+      'move',
+      'text',
+      'wait',
+      'help',
+      'not-allowed',
+      'crosshair',
+    ],
+    overflow: ['visible', 'hidden', 'scroll', 'auto', 'clip'],
     'overflow-x': ['visible', 'hidden', 'scroll', 'auto', 'clip'],
     'overflow-y': ['visible', 'hidden', 'scroll', 'auto', 'clip'],
-    'font-weight': ['normal', 'bold', 'lighter', 'bolder', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
+    'font-weight': [
+      'normal',
+      'bold',
+      'lighter',
+      'bolder',
+      '100',
+      '200',
+      '300',
+      '400',
+      '500',
+      '600',
+      '700',
+      '800',
+      '900',
+    ],
     'font-style': ['normal', 'italic', 'oblique'],
     'text-decoration': ['none', 'underline', 'overline', 'line-through'],
     'text-transform': ['none', 'capitalize', 'uppercase', 'lowercase'],
     'white-space': ['normal', 'nowrap', 'pre', 'pre-wrap', 'pre-line'],
-    'visibility': ['visible', 'hidden', 'collapse'],
+    visibility: ['visible', 'hidden', 'collapse'],
     'pointer-events': ['auto', 'none'],
     'box-sizing': ['content-box', 'border-box'],
-    'object-fit': ['fill', 'contain', 'cover', 'none', 'scale-down']
+    'object-fit': ['fill', 'contain', 'cover', 'none', 'scale-down'],
   };
-  
+
   // Color-related properties
-  if (property.includes('color') || property === 'background-color' || property === 'border-color') {
-    return ['transparent', 'currentColor', 'white', 'black', 'red', 'blue', 'green', 'yellow', 'gray', 
-            '#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', 
-            'rgb(0, 0, 0)', 'rgba(0, 0, 0, 1)', 'hsl(0, 0%, 0%)', 'hsla(0, 0%, 0%, 1)'];
+  if (
+    property.includes('color') ||
+    property === 'background-color' ||
+    property === 'border-color'
+  ) {
+    return [
+      'transparent',
+      'currentColor',
+      'white',
+      'black',
+      'red',
+      'blue',
+      'green',
+      'yellow',
+      'gray',
+      '#000000',
+      '#ffffff',
+      '#ff0000',
+      '#00ff00',
+      '#0000ff',
+      'rgb(0, 0, 0)',
+      'rgba(0, 0, 0, 1)',
+      'hsl(0, 0%, 0%)',
+      'hsla(0, 0%, 0%, 1)',
+    ];
   }
-  
+
   return commonValues[property] || [];
 }
 

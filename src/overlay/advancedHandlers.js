@@ -13,19 +13,20 @@ import { escapeHtml } from '../utils/domHelpers.js';
  * @param {Function} refreshCallback - Callback to refresh overlay
  */
 export function setupAddClassHandlers(panel, element, refreshCallback) {
-  panel.querySelectorAll(`.${CSS_CLASSES.ADD_CLASS}`).forEach(btn => {
+  panel.querySelectorAll(`.${CSS_CLASSES.ADD_CLASS}`).forEach((btn) => {
     btn.onclick = (e) => {
       e.stopPropagation();
-      
+
       const input = document.createElement('input');
       input.type = 'text';
       input.placeholder = 'Enter class name...';
-      input.style.cssText = 'background: rgba(25,118,210,0.2); color: #fff; border: 1px solid #1976d2; padding: 4px 8px; border-radius: 3px; font-size: 10px; width: 100%; margin-top: 4px; outline: none;';
-      
+      input.style.cssText =
+        'background: rgba(25,118,210,0.2); color: #fff; border: 1px solid #1976d2; padding: 4px 8px; border-radius: 3px; font-size: 10px; width: 100%; margin-top: 4px; outline: none;';
+
       btn.parentNode.insertBefore(input, btn);
       btn.style.display = 'none';
       input.focus();
-      
+
       input.onkeydown = (keyEvent) => {
         if (keyEvent.key === 'Enter') {
           keyEvent.preventDefault();
@@ -47,7 +48,7 @@ export function setupAddClassHandlers(panel, element, refreshCallback) {
         }
         keyEvent.stopPropagation();
       };
-      
+
       input.onblur = () => {
         setTimeout(() => {
           btn.style.display = '';
@@ -65,17 +66,22 @@ export function setupAddClassHandlers(panel, element, refreshCallback) {
  * @param {Function} refreshCallback - Callback to refresh overlay
  */
 export function setupAddStyleHandlers(panel, element, refreshCallback) {
-  panel.querySelectorAll(`.${CSS_CLASSES.ADD_INLINE_STYLE}`).forEach(btn => {
+  panel.querySelectorAll(`.${CSS_CLASSES.ADD_INLINE_STYLE}`).forEach((btn) => {
     btn.onclick = (e) => {
       e.stopPropagation();
-      
+
       const allCssProperties = getAllCSSProperties();
-      const { input, dropdown, inputContainer } = createStyleInput(allCssProperties, element, btn, refreshCallback);
-      
+      const { input, dropdown, inputContainer } = createStyleInput(
+        allCssProperties,
+        element,
+        btn,
+        refreshCallback
+      );
+
       btn.parentNode.insertBefore(inputContainer, btn);
       btn.style.display = 'none';
       input.focus();
-      
+
       showPropertySuggestions(input, dropdown, allCssProperties);
     };
   });
@@ -87,17 +93,26 @@ export function setupAddStyleHandlers(panel, element, refreshCallback) {
 function createStyleInput(allCssProperties, element, btn, refreshCallback) {
   const inputContainer = document.createElement('div');
   inputContainer.style.cssText = 'position: relative; margin-top: 4px;';
-  
+
   const input = document.createElement('input');
   input.type = 'text';
   input.placeholder = 'property: value';
-  input.style.cssText = 'background: rgba(25,118,210,0.2); color: #90caf9; border: 1px solid #1976d2; padding: 4px 8px; border-radius: 3px; font-size: 10px; width: 100%; outline: none; font-family: monospace;';
-  
+  input.style.cssText =
+    'background: rgba(25,118,210,0.2); color: #90caf9; border: 1px solid #1976d2; padding: 4px 8px; border-radius: 3px; font-size: 10px; width: 100%; outline: none; font-family: monospace;';
+
   const dropdown = createAutocompleteDropdown();
   inputContainer.appendChild(input);
-  
-  setupStyleInputHandlers(input, dropdown, allCssProperties, element, btn, inputContainer, refreshCallback);
-  
+
+  setupStyleInputHandlers(
+    input,
+    dropdown,
+    allCssProperties,
+    element,
+    btn,
+    inputContainer,
+    refreshCallback
+  );
+
   return { input, dropdown, inputContainer };
 }
 
@@ -106,12 +121,13 @@ function createStyleInput(allCssProperties, element, btn, refreshCallback) {
  */
 function createAutocompleteDropdown() {
   const dropdown = document.createElement('div');
-  dropdown.style.cssText = 'position: fixed; width: 250px; max-height: 200px; overflow-y: auto; background: rgba(25,25,25,0.98); border: 1px solid #1976d2; border-radius: 3px; z-index: 2147483647; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);';
+  dropdown.style.cssText =
+    'position: fixed; width: 250px; max-height: 200px; overflow-y: auto; background: rgba(25,25,25,0.98); border: 1px solid #1976d2; border-radius: 3px; z-index: 2147483647; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);';
   dropdown.className = 'css-autocomplete-dropdown';
-  
+
   ensureAutocompleteStyles();
   document.body.appendChild(dropdown);
-  
+
   return dropdown;
 }
 
@@ -145,41 +161,59 @@ function ensureAutocompleteStyles() {
 /**
  * Setup style input handlers
  */
-function setupStyleInputHandlers(input, dropdown, allCssProperties, element, btn, inputContainer, refreshCallback) {
+function setupStyleInputHandlers(
+  input,
+  dropdown,
+  allCssProperties,
+  element,
+  btn,
+  inputContainer,
+  refreshCallback
+) {
   let currentSuggestions = [];
   let selectedIndex = -1;
-  
+
   input.oninput = () => {
     const text = input.value;
     const colonIndex = text.indexOf(':');
-    
+
     if (colonIndex === -1) {
       const filtered = allCssProperties
-        .filter(p => p.toLowerCase().includes(text.toLowerCase()))
+        .filter((p) => p.toLowerCase().includes(text.toLowerCase()))
         .slice(0, 50)
-        .map(p => p + ': ');
+        .map((p) => p + ': ');
       renderSuggestions(dropdown, filtered, input, currentSuggestions, selectedIndex);
     } else if (colonIndex === text.lastIndexOf(':')) {
       const property = text.substring(0, colonIndex).trim();
       const currentValue = text.substring(colonIndex + 1).trim();
       const suggestions = getCommonCSSValues(property);
-      
+
       if (suggestions.length > 0) {
-        const filtered = currentValue 
-          ? suggestions.filter(v => v.toLowerCase().includes(currentValue.toLowerCase()))
+        const filtered = currentValue
+          ? suggestions.filter((v) => v.toLowerCase().includes(currentValue.toLowerCase()))
           : suggestions;
-        const formatted = filtered.map(v => property + ': ' + v);
+        const formatted = filtered.map((v) => property + ': ' + v);
         renderSuggestions(dropdown, formatted, input, currentSuggestions, selectedIndex);
       } else {
         dropdown.style.display = 'none';
       }
     }
   };
-  
+
   input.onkeydown = (keyEvent) => {
-    handleStyleInputKeydown(keyEvent, input, dropdown, currentSuggestions, selectedIndex, element, btn, inputContainer, refreshCallback);
+    handleStyleInputKeydown(
+      keyEvent,
+      input,
+      dropdown,
+      currentSuggestions,
+      selectedIndex,
+      element,
+      btn,
+      inputContainer,
+      refreshCallback
+    );
   };
-  
+
   input.onblur = () => {
     setTimeout(() => {
       dropdown.style.display = 'none';
@@ -191,7 +225,17 @@ function setupStyleInputHandlers(input, dropdown, allCssProperties, element, btn
 /**
  * Handle keydown in style input
  */
-function handleStyleInputKeydown(keyEvent, input, dropdown, currentSuggestions, selectedIndex, element, btn, inputContainer, refreshCallback) {
+function handleStyleInputKeydown(
+  keyEvent,
+  input,
+  dropdown,
+  currentSuggestions,
+  selectedIndex,
+  element,
+  btn,
+  inputContainer,
+  refreshCallback
+) {
   if (dropdown.style.display === 'block' && currentSuggestions.length > 0) {
     if (keyEvent.key === 'ArrowDown') {
       keyEvent.preventDefault();
@@ -208,24 +252,24 @@ function handleStyleInputKeydown(keyEvent, input, dropdown, currentSuggestions, 
       return;
     }
   }
-  
+
   if (keyEvent.key === 'Enter') {
     keyEvent.preventDefault();
     const newStyle = input.value.trim();
     if (newStyle && newStyle.includes(':')) {
-      let [prop, val] = newStyle.split(':').map(s => s.trim());
+      let [prop, val] = newStyle.split(':').map((s) => s.trim());
       if (prop && val) {
         const useImportant = keyEvent.shiftKey || val.includes('!important');
         if (!val.includes('!important') && useImportant) {
           val = val + ' !important';
         }
-        
+
         if (useImportant) {
           element.style.setProperty(prop, val.replace('!important', '').trim(), 'important');
         } else {
           element.style.setProperty(prop, val);
         }
-        
+
         refreshCallback(element);
       }
     }
@@ -244,7 +288,7 @@ function handleStyleInputKeydown(keyEvent, input, dropdown, currentSuggestions, 
  * Show property suggestions
  */
 function showPropertySuggestions(input, dropdown, allCssProperties) {
-  const suggestions = allCssProperties.map(p => p + ': ');
+  const suggestions = allCssProperties.map((p) => p + ': ');
   renderSuggestions(dropdown, suggestions, input, [], -1);
 }
 
@@ -256,16 +300,17 @@ function renderSuggestions(dropdown, suggestions, input, currentSuggestions, sel
   currentSuggestions.length = 0;
   currentSuggestions.push(...suggestions);
   selectedIndex = -1;
-  
+
   if (suggestions.length === 0) {
     dropdown.style.display = 'none';
     return;
   }
-  
+
   suggestions.forEach((suggestion, index) => {
     const item = document.createElement('div');
     item.textContent = suggestion;
-    item.style.cssText = 'padding: 6px 10px; cursor: pointer; font-size: 10px; color: #90caf9; font-family: monospace; transition: background 0.1s;';
+    item.style.cssText =
+      'padding: 6px 10px; cursor: pointer; font-size: 10px; color: #90caf9; font-family: monospace; transition: background 0.1s;';
     item.onmouseover = () => {
       item.style.background = 'rgba(25,118,210,0.3)';
     };
@@ -282,7 +327,7 @@ function renderSuggestions(dropdown, suggestions, input, currentSuggestions, sel
     };
     dropdown.appendChild(item);
   });
-  
+
   dropdown.style.display = 'block';
   positionDropdown(dropdown, input);
 }
@@ -295,14 +340,14 @@ function positionDropdown(dropdown, input) {
   const dropdownHeight = 200;
   const spaceBelow = window.innerHeight - rect.bottom;
   const spaceAbove = rect.top;
-  
+
   dropdown.style.left = rect.right - 250 + 'px';
-  
+
   if (spaceBelow >= dropdownHeight || spaceBelow > spaceAbove) {
     dropdown.style.top = rect.bottom + 2 + 'px';
     dropdown.style.bottom = 'auto';
   } else {
-    dropdown.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
+    dropdown.style.bottom = window.innerHeight - rect.top + 2 + 'px';
     dropdown.style.top = 'auto';
   }
 }
