@@ -1,6 +1,19 @@
 /**
  * Framework detection utilities for dev builds
+ * Refactored to use helper modules for better maintainability
  */
+
+import {
+  isFromUserCode,
+  isFromNodeModules,
+  isKnownFrameworkComponent,
+  hasFrameworkPattern as hasFrameworkPatternCheck,
+  calculateComponentScore,
+  isUserComponent as checkIsUserComponent,
+  extractHooks,
+  sanitizeValue,
+  sanitizeProps
+} from './reactHelpers.js';
 
 /**
  * Detects React component from a DOM node

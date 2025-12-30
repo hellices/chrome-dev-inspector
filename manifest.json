@@ -8,7 +8,7 @@
   "content_scripts": [
     {
       "matches": ["http://localhost/*", "http://127.0.0.1/*", "http://*.local/*"],
-      "js": ["src/content.js"],
+      "js": ["src/content-loader.js"],
       "css": ["styles/overlay.css"],
       "run_at": "document_end",
       "all_frames": true
@@ -16,7 +16,23 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/inpage.js"],
+      "resources": [
+        "src/inpage.js",
+        "src/content.js",
+        "src/config/constants.js",
+        "src/utils/domHelpers.js",
+        "src/utils/panelPosition.js",
+        "src/utils/messageHandler.js",
+        "src/utils/cssHelper.js",
+        "src/utils/reactHelpers.js",
+        "src/utils/formatters.js",
+        "src/utils/frameworkDetect.js",
+        "src/utils/throttle.js",
+        "src/overlay/overlayManager.js",
+        "src/overlay/eventHandlers.js",
+        "src/overlay/advancedHandlers.js",
+        "src/overlay/cssFormatter.js"
+      ],
       "matches": ["<all_urls>"]
     }
   ],

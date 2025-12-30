@@ -104,23 +104,48 @@ Component Hierarchy: App → Dashboard → MyButton
 chrome-dev-inspector/
 ├── manifest.json           # Chrome extension manifest (MV3)
 ├── src/
-│   ├── content.js         # Content script (hover handling, overlay)
-│   ├── inpage.js          # In-page script (framework detection)
-│   └── utils/
-│       ├── throttle.js    # Throttle utility
-│       └── frameworkDetect.js  # Framework detection logic
-├── styles/
-│   └── overlay.css        # Overlay styling (light/dark theme)
-├── tests/
+│   ├── config/
+│   │   └── constants.js   # Global constants and configuration
 │   ├── utils/
-│   │   ├── throttle.test.js
-│   │   └── frameworkDetect.test.js
-│   └── content.overlay.test.js
+│   │   ├── domHelpers.js        # DOM manipulation helpers
+│   │   ├── panelPosition.js     # Panel positioning logic
+│   │   ├── messageHandler.js    # Message communication
+│   │   ├── cssHelper.js         # CSS management utilities
+│   │   ├── reactHelpers.js      # React-specific utilities
+│   │   ├── formatters.js        # UI formatting
+│   │   ├── frameworkDetect.js   # Framework detection
+│   │   └── throttle.js          # Throttle/debounce utilities
+│   ├── overlay/
+│   │   ├── overlayManager.js    # Overlay creation and management
+│   │   ├── eventHandlers.js     # Event handlers
+│   │   ├── advancedHandlers.js  # Advanced UI handlers
+│   │   └── cssFormatter.js      # CSS section formatting
+│   ├── content.js         # Main content script
+│   └── inpage.js          # In-page script (framework detection)
+├── styles/
+│   └── overlay.css        # Overlay styling
+├── tests/
+│   └── ...                # Unit and integration tests
 └── icons/
     ├── icon16.png
     ├── icon48.png
     └── icon128.png
 ```
+
+### Modular Architecture
+
+The extension is built with a modular architecture for maintainability:
+
+- **Config Layer**: All constants and settings in one place
+- **Utils Layer**: Reusable utility functions for DOM, CSS, messages, etc.
+- **Overlay Layer**: UI components and event handling
+- **Main Scripts**: Thin orchestration layer using the modules
+
+This structure provides:
+- Clear separation of concerns
+- Easy testing of individual modules
+- Better code reusability
+- Simplified maintenance and debugging
 
 ### How It Works
 
