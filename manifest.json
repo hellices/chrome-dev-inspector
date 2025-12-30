@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HoverComp Dev Inspector",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Hover-based component inspector for React, Vue, Angular, and Web Components in dev mode",
   "permissions": [],
   "host_permissions": ["http://localhost/*", "http://127.0.0.1/*", "http://*.local/*"],
