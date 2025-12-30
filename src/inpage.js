@@ -21,25 +21,322 @@
         }
 
         let fiber = node[fiberKey];
+        let componentHierarchy = [];
+        
         while (fiber) {
           const componentType = fiber.type;
-          if (componentType) {
-            const name =
-              componentType.displayName || componentType.name || componentType.constructor?.name;
-            if (name && name !== 'Anonymous') {
-              return {
-                framework: 'React',
+          
+          // Skip if type is null/undefined
+          if (!componentType) {
+            fiber = fiber.return;
+            continue;
+          }
+
+          // Skip primitive types (string, number) and HTML elements
+          if (typeof componentType === 'string') {
+            fiber = fiber.return;
+            continue;
+          }
+
+          // Skip built-in types
+          if (typeof componentType === 'function') {
+            const name = componentType.displayName || componentType.name;
+            
+            // Filter out primitives and built-in React types
+            if (name && 
+                name !== 'Anonymous' && 
+                name !== 'String' && 
+                name !== 'Number' && 
+                name !== 'Boolean' &&
+                !name.startsWith('_') &&
+                name.length > 0) {
+              
+              // Better detection: Check file path from source location
+              const debugSource = fiber._debugSource || componentType.__source;
+              const debugOwner = fiber._debugOwner;
+              const fileName = debugSource?.fileName || componentType._source?.fileName || '';
+              
+              // Check owner's file path (who created this component)
+              let ownerFileName = '';
+              if (debugOwner && debugOwner.type) {
+                const ownerSource = debugOwner._debugSource || debugOwner.type.__source;
+                ownerFileName = ownerSource?.fileName || '';
+              }
+              
+              // Check if it's a user component based on file path
+              const isFromNodeModules = fileName.includes('node_modules') || fileName.includes('/next/') || fileName.includes('\\next\\');
+              const isFromUserCode = fileName && (
+                fileName.includes('/app/') || 
+                fileName.includes('\\app\\') ||
+                fileName.includes('/src/') || 
+                fileName.includes('\\src\\') ||
+                fileName.includes('/components/') || 
+                fileName.includes('\\components\\') ||
+                fileName.includes('/pages/') || 
+                fileName.includes('\\pages\\')
+              );
+              
+              // Function source check
+              const source = componentType.toString();
+              const hasUserCodePatterns = source.length > 200 || (source.includes('jsx') || source.includes('tsx'));
+              const isMinified = source.length < 100 && !source.includes('return');
+              
+              // Known framework components (strict list)
+              const knownFrameworkComponents = [
+                'Link', 'Image', 'Script', 'Head', 'ServerRoot', 'HotReload',
+                'Router', 'AppRouter', 'ErrorBoundary', 'Boundary', 'Provider', 'Context'
+              ];
+              const isKnownFramework = 
+                knownFrameworkComponents.includes(name) || 
+                name.endsWith('Component') && knownFrameworkComponents.some(fw => name.includes(fw)) ||
+                name.includes('ServerRoot') || 
+                name.includes('HotReload') ||
+                name.includes('AppRouter') ||
+                name === 'Root' && fileName.includes('next') ||
+                name === 'Router' && (fileName.includes('next') || fileName.includes('react-router'));
+              
+              // Name-based filtering (more strict for Next.js components)
+              const hasFrameworkPattern = 
+                name.match(/^(Fragment|Suspense|StrictMode|Provider|Consumer|Context|Profiler|Router|AppRouter|ErrorBoundary|Boundary|Handler|Root|ServerRoot)$/) ||
+                name === 'AppRouter' ||
+                name.includes('Router') && (fileName.includes('next') || fileName.includes('node_modules')) ||
+                name.includes('Boundary') ||
+                name.includes('Handler') ||
+                name.includes('Provider') ||
+                name.includes('Context') ||
+                name.includes('Overlay') ||
+                name.includes('DevRoot') ||
+                name.includes('HotReload') ||
+                name.includes('ServerRoot') ||
+                name.includes('Segment') ||
+                name.includes('View') ||
+                name.includes('Scroll') ||
+                name.includes('Focus') ||
+                name.includes('Redirect') ||
+                name.includes('Template') ||
+                name.includes('Fallback') ||
+                name.includes('HTTPAccess') ||
+                name.includes('Loading') ||
+                name.startsWith('Inner') ||
+                name.startsWith('Outer') ||
+                name.startsWith('Render');
+              
+              // Calculate score (higher = more likely user component)
+              let score = 0;
+              
+              // Strong negative indicators
+              if (isKnownFramework) score -= 10;
+              if (hasFrameworkPattern) score -= 5;
+              if (isFromNodeModules) score -= 10;
+              if (fileName.includes('next/dist')) score -= 15;
+              
+              // Positive indicators
+              if (isFromUserCode && !isFromNodeModules) score += 10;
+              if (ownerFileName && ownerFileName.includes('/app/')) score += 5;
+              if (hasUserCodePatterns) score += 3;
+              if (!isMinified) score += 2;
+              
+              // Boost score for functional components (React.memo, forwardRef)
+              if (componentType.$$typeof || componentType._payload) score += 2;
+              if (source.includes('function') || source.includes('=>')) score += 1;
+              
+              // Must have positive score to be user component
+              const isUserComponent = score >= 8 && !isKnownFramework && !hasFrameworkPattern;
+              
+              // Extract detailed information
+              const props = fiber.memoizedProps || {};
+              const state = fiber.memoizedState;
+              const hooks = extractHooks(fiber);
+              
+              // Collect all parent states (simplified - show all, let user identify matches)
+              const parentStates = [];
+              let parentFiber = fiber.return;
+              let depth = 0;
+              
+              // Search up to 3 levels for parent components with states
+              while (parentFiber && depth < 3) {
+                if (parentFiber.type && typeof parentFiber.type === 'function') {
+                  const parentName = parentFiber.type.displayName || parentFiber.type.name || 'Anonymous';
+                  
+                  // Get parent's hooks/state
+                  let parentHook = parentFiber.memoizedState;
+                  let parentHookIndex = 0;
+                  
+                  while (parentHook && parentHookIndex < 10) {
+                    if (parentHook.memoizedState !== undefined) {
+                      try {
+                        parentStates.push({
+                          parentComponent: parentName,
+                          stateIndex: parentHookIndex,
+                          value: sanitizeValue(parentHook.memoizedState),
+                          hookIndex: parentHookIndex,
+                          depth: depth
+                        });
+                      } catch (err) {
+                        // Skip values that can't be serialized
+                      }
+                    }
+                    parentHook = parentHook.next;
+                    parentHookIndex++;
+                  }
+                }
+                parentFiber = parentFiber.return;
+                depth++;
+              }
+              
+              const componentInfo = {
                 name,
-                detail: fiber.elementType?.name || '',
+                isUserComponent,
+                score,
+                props: sanitizeProps(props),
+                state: sanitizeValue(state),
+                hooks: hooks,
+                parentStates: parentStates,
+                source: debugSource || componentType._source || null,
+                fileName: fileName,
+                ownerFileName: ownerFileName,
+                isFromNodeModules: isFromNodeModules,
+                isKnownFramework: isKnownFramework,
+                hasFrameworkPattern: hasFrameworkPattern
               };
+              
+              componentHierarchy.push(componentInfo);
+              
+              // Debug logging
+              if (name === 'AppRouter' || name.includes('Router')) {
+                console.log('[HoverComp Debug]', name, {
+                  score,
+                  isUserComponent,
+                  isKnownFramework,
+                  hasFrameworkPattern,
+                  fileName: fileName.substring(fileName.lastIndexOf('/') + 1)
+                });
+              }
             }
           }
+          
           fiber = fiber.return;
         }
+        
+        // Select the best user component based on score
+        const userComponents = componentHierarchy.filter(c => c.isUserComponent);
+        
+        // Sort by score (highest first), then by position (outermost first)
+        userComponents.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          // If scores equal, prefer outermost (later in array)
+          return componentHierarchy.indexOf(b) - componentHierarchy.indexOf(a);
+        });
+        
+        // Debug logging
+        console.log('[HoverComp] All components:', componentHierarchy.map(c => `${c.name}(${c.score}, user:${c.isUserComponent})`));
+        console.log('[HoverComp] User components:', userComponents.map(c => `${c.name}(${c.score})`));
+        
+        // Select highest scored user component, or fallback to non-framework with positive score
+        const targetComponent = userComponents[0] || 
+                               componentHierarchy.find(c => !c.isKnownFramework && !c.hasFrameworkPattern && c.score >= 0) || 
+                               componentHierarchy[0];
+        
+        console.log('[HoverComp] Selected component:', targetComponent?.name, 'Score:', targetComponent?.score);
+        
+        if (targetComponent) {
+          // Filter hierarchy to show only user components or key library components
+          const filteredHierarchy = componentHierarchy
+            .filter(c => c.isUserComponent || c.name.match(/^(App|Layout|Page|Document|Main)$/))
+            .map(c => `${c.name}${c.score ? ` (${c.score})` : ''}`);
+          
+          return {
+            framework: 'React',
+            name: targetComponent.name,
+            detail: targetComponent.source?.fileName || '',
+            props: targetComponent.props,
+            state: targetComponent.state,
+            hooks: targetComponent.hooks,
+            hierarchy: filteredHierarchy.length > 0 ? filteredHierarchy : [targetComponent.name],
+            isUserComponent: targetComponent.isUserComponent,
+            score: targetComponent.score,
+            allUserComponents: userComponents.map(c => `${c.name} (${c.score})`),
+            fileName: targetComponent.fileName,
+            ownerFileName: targetComponent.ownerFileName,
+            isFromNodeModules: targetComponent.isFromNodeModules
+          };
+        }
       } catch (e) {
-        // Silent fail
+        console.error('React detection error:', e);
       }
       return null;
+    }
+    
+    function extractHooks(fiber) {
+      try {
+        const hooks = [];
+        let hook = fiber.memoizedState;
+        
+        while (hook) {
+          if (hook.memoizedState !== undefined) {
+            hooks.push({
+              value: sanitizeValue(hook.memoizedState)
+            });
+          }
+          hook = hook.next;
+        }
+        
+        return hooks;
+      } catch (e) {
+        return [];
+      }
+    }
+    
+    function sanitizeValue(value) {
+      if (value === null) return null;
+      if (value === undefined) return 'undefined';
+      if (typeof value === 'function') return '[Function]';
+      if (typeof value === 'symbol') return '[Symbol]';
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        return value;
+      }
+      if (typeof value === 'object') {
+        try {
+          return JSON.parse(JSON.stringify(value));
+        } catch (e) {
+          return '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
+        }
+      }
+      return String(value);
+    }
+    
+    function sanitizeProps(props) {
+      const sanitized = {};
+      for (const key in props) {
+        // Skip symbol keys
+        if (typeof key === 'symbol') continue;
+        
+        const value = props[key];
+        
+        if (key === 'children') {
+          sanitized[key] = typeof value === 'object' ? '[React Children]' : String(value);
+        } else if (typeof value === 'function') {
+          sanitized[key] = '[Function: ' + (value.name || 'anonymous') + ']';
+        } else if (typeof value === 'symbol') {
+          sanitized[key] = '[Symbol: ' + value.toString() + ']';
+        } else if (typeof value === 'undefined') {
+          sanitized[key] = 'undefined';
+        } else if (value === null) {
+          sanitized[key] = null;
+        } else if (typeof value === 'object') {
+          try {
+            // Check for circular references and symbols
+            sanitized[key] = JSON.parse(JSON.stringify(value));
+          } catch (e) {
+            sanitized[key] = '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
+          }
+        } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          sanitized[key] = value;
+        } else {
+          sanitized[key] = String(value);
+        }
+      }
+      return sanitized;
     }
 
     function detectVue2(node) {
@@ -177,6 +474,59 @@
 
     // Detect component
     const info = detectComponent(node);
+    
+    // Add CSS information
+    if (info && node instanceof HTMLElement) {
+      const styles = window.getComputedStyle(node);
+      const cssInfo = {
+        classes: Array.from(node.classList),
+        styles: {
+          display: styles.display || '',
+          position: styles.position || '',
+          width: styles.width || '',
+          height: styles.height || '',
+          margin: styles.margin || '',
+          padding: styles.padding || '',
+          backgroundColor: styles.backgroundColor || '',
+          color: styles.color || '',
+          fontSize: styles.fontSize || '',
+          fontFamily: styles.fontFamily || '',
+          border: styles.border || '',
+          borderRadius: styles.borderRadius || '',
+          flexDirection: styles.flexDirection || '',
+          justifyContent: styles.justifyContent || '',
+          alignItems: styles.alignItems || '',
+          gridTemplateColumns: styles.gridTemplateColumns || '',
+          zIndex: styles.zIndex || ''
+        },
+        inlineStyles: node.style.cssText || ''
+      };
+      
+      // Find which stylesheets contribute to this element
+      const matchedRules = [];
+      try {
+        for (const sheet of document.styleSheets) {
+          try {
+            for (const rule of sheet.cssRules || []) {
+              if (rule instanceof CSSStyleRule && node.matches(rule.selectorText)) {
+                matchedRules.push({
+                  selector: rule.selectorText,
+                  source: sheet.href || 'inline',
+                  styles: rule.style.cssText
+                });
+              }
+            }
+          } catch (e) {
+            // Cross-origin stylesheet
+          }
+        }
+      } catch (e) {
+        // Silent fail
+      }
+      
+      cssInfo.matchedRules = matchedRules;
+      info.css = cssInfo;
+    }
 
     // Cache result
     componentCache.set(node, {
@@ -192,37 +542,160 @@
    */
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
-    if (event.data.type !== 'GET_COMPONENT_INFO') return;
+    
+    if (event.data.type === 'GET_COMPONENT_INFO') {
+      const { targetPath } = event.data;
 
-    const { targetPath } = event.data;
-
-    // Resolve element from path
-    let element = null;
-    try {
-      if (targetPath) {
-        element = document.evaluate(
-          targetPath,
-          document,
-          null,
-          XPathResult.FIRST_ORDERED_NODE_TYPE,
-          null
-        ).singleNodeValue;
+      // Resolve element from path
+      let element = null;
+      try {
+        if (targetPath) {
+          element = document.evaluate(
+            targetPath,
+            document,
+            null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE,
+            null
+          ).singleNodeValue;
+        }
+      } catch (e) {
+        console.error('Error resolving element:', e);
       }
-    } catch (e) {
-      console.error('Error resolving element:', e);
+
+      const componentInfo = element ? getComponentInfo(element) : null;
+
+      // Send response back
+      window.postMessage(
+        {
+          type: 'COMPONENT_INFO_RESPONSE',
+          componentInfo,
+        },
+        '*'
+      );
+    } else if (event.data.type === 'UPDATE_PARENT_STATE') {
+      // Handle parent state updates
+      const { targetPath, hookIndex, depth, newValue } = event.data;
+      
+      try {
+        let element = null;
+        if (targetPath) {
+          element = document.evaluate(
+            targetPath,
+            document,
+            null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE,
+            null
+          ).singleNodeValue;
+        }
+        
+        if (element) {
+          const fiberKey = Object.keys(element).find((key) => key.startsWith('__reactFiber'));
+          if (fiberKey) {
+            const fiber = element[fiberKey];
+            
+            // Navigate up to the specified depth
+            let parentFiber = fiber.return;
+            let currentDepth = 0;
+            
+            while (parentFiber && currentDepth < depth) {
+              parentFiber = parentFiber.return;
+              currentDepth++;
+            }
+            
+            // Find the component at that depth
+            while (parentFiber && currentDepth === depth) {
+              if (parentFiber.type && typeof parentFiber.type === 'function') {
+                // Navigate to the specific hook
+                let hook = parentFiber.memoizedState;
+                let currentIndex = 0;
+                
+                while (hook && currentIndex <= hookIndex) {
+                  if (currentIndex === hookIndex) {
+                    // Found the target hook, update it
+                    const parsedValue = parseValue(newValue);
+                    
+                    // Update the memoizedState
+                    hook.memoizedState = parsedValue;
+                    
+                    // Also update baseState if it exists
+                    if (hook.baseState !== undefined) {
+                      hook.baseState = parsedValue;
+                    }
+                    
+                    // Try to find and call the setState function
+                    if (hook.queue && hook.queue.dispatch) {
+                      try {
+                        // Call setState to trigger re-render
+                        hook.queue.dispatch(parsedValue);
+                        console.log('[HoverComp] Parent state updated successfully');
+                        window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
+                        return;
+                      } catch (err) {
+                        console.error('[HoverComp] Error calling dispatch:', err);
+                      }
+                    }
+                    
+                    // Fallback: Force update by marking fiber as dirty
+                    parentFiber.lanes = 1;
+                    if (parentFiber.alternate) {
+                      parentFiber.alternate.lanes = 1;
+                    }
+                    
+                    // Try to schedule update
+                    const fiberRoot = getFiberRoot(parentFiber);
+                    if (fiberRoot) {
+                      const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+                      if (hook && hook.renderers) {
+                        Array.from(hook.renderers.values()).forEach(renderer => {
+                          try {
+                            if (renderer.scheduleUpdate) {
+                              renderer.scheduleUpdate(parentFiber);
+                            }
+                          } catch (e) {
+                            // Ignore
+                          }
+                        });
+                      }
+                    }
+                    
+                    console.log('[HoverComp] Parent state updated (fallback method)');
+                    window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
+                    return;
+                  }
+                  hook = hook.next;
+                  currentIndex++;
+                }
+                break; // Found the component at correct depth, stop
+              }
+              parentFiber = parentFiber.return;
+            }
+            
+            console.warn('[HoverComp] Parent state not found');
+            window.postMessage({ type: 'UPDATE_ERROR', error: 'Parent state not found' }, '*');
+          }
+        }
+      } catch (e) {
+        console.error('Error updating parent state:', e);
+        window.postMessage({ type: 'UPDATE_ERROR', error: e.message }, '*');
+      }
     }
-
-    const componentInfo = element ? getComponentInfo(element) : null;
-
-    // Send response back
-    window.postMessage(
-      {
-        type: 'COMPONENT_INFO_RESPONSE',
-        componentInfo,
-      },
-      '*'
-    );
   });
+  
+  function getFiberRoot(fiber) {
+    let current = fiber;
+    while (current.return) {
+      current = current.return;
+    }
+    return current.stateNode;
+  }
+  
+  function parseValue(value) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
 
   console.log('[HoverComp Dev Inspector] In-page script loaded');
 })();

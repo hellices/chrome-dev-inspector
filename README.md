@@ -4,16 +4,26 @@ A Chrome extension (Manifest V3) that enables hover-based component inspection f
 
 ## 🎯 Features
 
-- **Hover Detection**: Instantly displays component information when hovering over UI elements
+- **Hover Detection**: Instantly displays detailed component information when hovering over UI elements
+- **Comprehensive Component Inspector**:
+  - Component name and type (User vs Library component)
+  - Component hierarchy (parent-child relationships)
+  - Props with live values
+  - State and Hooks inspection
+  - CSS information (classes, inline styles, computed styles, matched rules)
+- **Interactive Debugging**:
+  - Click to expand/collapse sections
+  - Edit prop values in real-time
+  - Visual highlighting of inspected elements
 - **Multi-Framework Support**:
-  - React (with DevTools hooks)
+  - React (with DevTools hooks) - Full feature support
   - Vue 2 & Vue 3
   - Angular (Ivy)
   - Web Components
+- **Smart Filtering**: Prioritizes user-created components over library components
 - **Keyboard Toggle**: Press `Alt+Shift+C` to enable/disable the inspector
 - **Performance Optimized**: Built-in throttling and caching for smooth performance
-- **Dev-Mode Only**: Designed to work with development builds (does not support production builds)
-- **Minimal UI**: Clean overlay with component name and framework information
+- **Dev-Mode Only**: Designed to work with development builds
 
 ## 🚀 Installation
 
@@ -47,20 +57,43 @@ A Chrome extension (Manifest V3) that enables hover-based component inspection f
 
 2. The extension is enabled by default - simply hover over any UI element
 
-3. An overlay will appear showing:
-   - Framework name (e.g., "React", "Vue 3", "Angular", "Web Component")
-   - Component name (e.g., "MyComponent", "App", "HeaderComponent")
-   - Additional details (if available)
+3. A detailed panel will appear showing:
+   - **Component Info**: Framework name, component name, and type (user/library)
+   - **Component Hierarchy**: Parent-child component tree
+   - **Props**: All props with their current values (click "Edit" to modify)
+   - **Hooks**: State values and hook information
+   - **CSS**: Classes, inline styles, computed styles, and matched CSS rules
 
-4. Press `Alt+Shift+C` to toggle the inspector on/off
+4. **Interactive Features**:
+   - Click section headers (▼) to expand/collapse
+   - Click "Edit" buttons next to props to modify values in real-time
+   - Changes are applied immediately to the component
+
+5. Press `Alt+Shift+C` to toggle the inspector on/off
 
 ### Example Output
 
 ```
-React: MyButton (functional)
-Vue 3: TodoList
-Angular: AppComponent
-Web Component: custom-button (Shadow DOM)
+React: MyButton ✓ User Component
+Component Hierarchy: App → Dashboard → MyButton
+
+▼ Props (3)
+  variant: "primary" [Edit]
+  onClick: [Function] [Edit]
+  disabled: false [Edit]
+
+▼ Hooks (2)
+  Hook 0: true
+  Hook 1: "hello world"
+
+▼ CSS
+  Classes: btn, btn-primary, custom-button
+  Inline: background-color: blue; padding: 10px;
+  Computed:
+    display: inline-block
+    position: relative
+    backgroundColor: rgb(0, 123, 255)
+  Matched Rules: 3
 ```
 
 ## 🏗️ Architecture
@@ -135,6 +168,10 @@ npm run test:watch
 - Uses `window.__REACT_DEVTOOLS_GLOBAL_HOOK__`
 - Traverses Fiber tree to find component names
 - Extracts `displayName`, `name`, or `constructor.name`
+- Filters out library components and prioritizes user components
+- Collects props from `fiber.memoizedProps`
+- Extracts hooks from `fiber.memoizedState`
+- Builds component hierarchy by traversing up the fiber tree
 
 ### Vue 2
 
