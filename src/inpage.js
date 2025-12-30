@@ -148,42 +148,6 @@
               const state = fiber.memoizedState;
               const hooks = extractHooks(fiber);
               
-              // Collect all parent states (simplified - show all, let user identify matches)
-              const parentStates = [];
-              let parentFiber = fiber.return;
-              let depth = 0;
-              
-              // Search up to 3 levels for parent components with states
-              while (parentFiber && depth < 3) {
-                if (parentFiber.type && typeof parentFiber.type === 'function') {
-                  const parentName = parentFiber.type.displayName || parentFiber.type.name || 'Anonymous';
-                  
-                  // Get parent's hooks/state
-                  let parentHook = parentFiber.memoizedState;
-                  let parentHookIndex = 0;
-                  
-                  while (parentHook && parentHookIndex < 10) {
-                    if (parentHook.memoizedState !== undefined) {
-                      try {
-                        parentStates.push({
-                          parentComponent: parentName,
-                          stateIndex: parentHookIndex,
-                          value: sanitizeValue(parentHook.memoizedState),
-                          hookIndex: parentHookIndex,
-                          depth: depth
-                        });
-                      } catch (err) {
-                        // Skip values that can't be serialized
-                      }
-                    }
-                    parentHook = parentHook.next;
-                    parentHookIndex++;
-                  }
-                }
-                parentFiber = parentFiber.return;
-                depth++;
-              }
-              
               const componentInfo = {
                 name,
                 isUserComponent,
@@ -191,7 +155,6 @@
                 props: sanitizeProps(props),
                 state: sanitizeValue(state),
                 hooks: hooks,
-                parentStates: parentStates,
                 source: debugSource || componentType._source || null,
                 fileName: fileName,
                 ownerFileName: ownerFileName,
@@ -543,7 +506,30 @@
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
     
-    if (event.data.type === 'GET_COMPONENT_INFO') {
+    if (event.data.type === 'INVALIDATE_CACHE') {
+      // Invalidate cache for specific element
+      const { targetPath } = event.data;
+      
+      try {
+        let element = null;
+        if (targetPath) {
+          element = document.evaluate(
+            targetPath,
+            document,
+            null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE,
+            null
+          ).singleNodeValue;
+        }
+        
+        if (element) {
+          componentCache.delete(element);
+          console.log('[HoverComp] Cache invalidated for element');
+        }
+      } catch (e) {
+        console.error('Error invalidating cache:', e);
+      }
+    } else if (event.data.type === 'GET_COMPONENT_INFO') {
       const { targetPath } = event.data;
 
       // Resolve element from path
@@ -572,9 +558,9 @@
         },
         '*'
       );
-    } else if (event.data.type === 'UPDATE_PARENT_STATE') {
-      // Handle parent state updates
-      const { targetPath, hookIndex, depth, newValue } = event.data;
+    } else if (event.data.type === 'UPDATE_HOOK') {
+      // Handle hook updates (current component)
+      const { targetPath, hookIndex, newValue } = event.data;
       
       try {
         let element = null;
@@ -593,20 +579,12 @@
           if (fiberKey) {
             const fiber = element[fiberKey];
             
-            // Navigate up to the specified depth
-            let parentFiber = fiber.return;
-            let currentDepth = 0;
-            
-            while (parentFiber && currentDepth < depth) {
-              parentFiber = parentFiber.return;
-              currentDepth++;
-            }
-            
-            // Find the component at that depth
-            while (parentFiber && currentDepth === depth) {
-              if (parentFiber.type && typeof parentFiber.type === 'function') {
+            // Find the component fiber
+            let componentFiber = fiber;
+            while (componentFiber) {
+              if (componentFiber.type && typeof componentFiber.type === 'function') {
                 // Navigate to the specific hook
-                let hook = parentFiber.memoizedState;
+                let hook = componentFiber.memoizedState;
                 let currentIndex = 0;
                 
                 while (hook && currentIndex <= hookIndex) {
@@ -625,9 +603,62 @@
                     // Try to find and call the setState function
                     if (hook.queue && hook.queue.dispatch) {
                       try {
-                        // Call setState to trigger re-render
-                        hook.queue.dispatch(parsedValue);
-                        console.log('[HoverComp] Parent state updated successfully');
+                        // Temporarily suppress React warnings
+                        const originalError = console.error;
+                        console.error = (...args) => {
+                          if (args[0]?.includes?.('optimistic state update')) {
+                            return; // Suppress this specific warning
+                          }
+                          originalError.apply(console, args);
+                        };
+                        
+                        try {
+                          // Also update alternate fiber BEFORE dispatch
+                          if (componentFiber.alternate && componentFiber.alternate.memoizedState) {
+                            let altHook = componentFiber.alternate.memoizedState;
+                            let altIndex = 0;
+                            while (altHook && altIndex < hookIndex) {
+                              altHook = altHook.next;
+                              altIndex++;
+                            }
+                            if (altHook && altIndex === hookIndex) {
+                              altHook.memoizedState = parsedValue;
+                              if (altHook.baseState !== undefined) {
+                                altHook.baseState = parsedValue;
+                              }
+                            }
+                          }
+                          
+                          // Mark fiber as needing update
+                          componentFiber.lanes = 1;
+                          if (componentFiber.alternate) {
+                            componentFiber.alternate.lanes = 1;
+                          }
+                          
+                          // Schedule update on root fiber
+                          let rootFiber = componentFiber;
+                          while (rootFiber.return) {
+                            rootFiber = rootFiber.return;
+                          }
+                          
+                          // Try to get React's scheduler
+                          const fiberRoot = rootFiber.stateNode;
+                          if (fiberRoot && fiberRoot.current) {
+                            // Mark root as having pending updates
+                            if (typeof fiberRoot.ensureRootIsScheduled === 'function') {
+                              fiberRoot.ensureRootIsScheduled(fiberRoot);
+                            }
+                          }
+                          
+                          // Call dispatch to trigger re-render
+                          hook.queue.dispatch(parsedValue);
+                          
+                          console.log('[HoverComp] Hook updated and scheduled');
+                        } finally {
+                          // Restore console.error
+                          console.error = originalError;
+                        }
+                        
                         window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
                         return;
                       } catch (err) {
@@ -635,47 +666,164 @@
                       }
                     }
                     
-                    // Fallback: Force update by marking fiber as dirty
-                    parentFiber.lanes = 1;
-                    if (parentFiber.alternate) {
-                      parentFiber.alternate.lanes = 1;
+                    // Fallback: Force update using React internals
+                    hook.memoizedState = parsedValue;
+                    if (hook.baseState !== undefined) {
+                      hook.baseState = parsedValue;
                     }
                     
-                    // Try to schedule update
-                    const fiberRoot = getFiberRoot(parentFiber);
-                    if (fiberRoot) {
-                      const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-                      if (hook && hook.renderers) {
-                        Array.from(hook.renderers.values()).forEach(renderer => {
-                          try {
-                            if (renderer.scheduleUpdate) {
-                              renderer.scheduleUpdate(parentFiber);
-                            }
-                          } catch (e) {
-                            // Ignore
-                          }
-                        });
+                    // Mark both fibers for update
+                    componentFiber.lanes = 1;
+                    if (componentFiber.alternate) {
+                      componentFiber.alternate.lanes = 1;
+                      
+                      // Update alternate hook too
+                      let altHook = componentFiber.alternate.memoizedState;
+                      let altIndex = 0;
+                      while (altHook && altIndex < hookIndex) {
+                        altHook = altHook.next;
+                        altIndex++;
+                      }
+                      if (altHook && altIndex === hookIndex) {
+                        altHook.memoizedState = parsedValue;
+                        if (altHook.baseState !== undefined) {
+                          altHook.baseState = parsedValue;
+                        }
                       }
                     }
                     
-                    console.log('[HoverComp] Parent state updated (fallback method)');
+                    // Force schedule update on root
+                    let rootFiber = componentFiber;
+                    while (rootFiber.return) {
+                      rootFiber = rootFiber.return;
+                    }
+                    const fiberRoot = rootFiber.stateNode;
+                    if (fiberRoot && fiberRoot.current) {
+                      try {
+                        // Try to schedule update
+                        if (typeof fiberRoot.ensureRootIsScheduled === 'function') {
+                          fiberRoot.ensureRootIsScheduled(fiberRoot);
+                        }
+                        
+                        // Try to mark as having pending work
+                        if (fiberRoot.callbackNode === null && typeof fiberRoot.scheduleRefresh === 'function') {
+                          fiberRoot.scheduleRefresh();
+                        }
+                      } catch (e) {
+                        console.log('[HoverComp] Could not schedule root update:', e.message);
+                      }
+                    }
+                    
+                    console.log('[HoverComp] Hook updated (fallback method)');
                     window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
                     return;
                   }
                   hook = hook.next;
                   currentIndex++;
                 }
-                break; // Found the component at correct depth, stop
+                break;
               }
-              parentFiber = parentFiber.return;
+              componentFiber = componentFiber.return;
             }
             
-            console.warn('[HoverComp] Parent state not found');
-            window.postMessage({ type: 'UPDATE_ERROR', error: 'Parent state not found' }, '*');
+            console.warn('[HoverComp] Hook not found');
+            window.postMessage({ type: 'UPDATE_ERROR', error: 'Hook not found' }, '*');
           }
         }
       } catch (e) {
-        console.error('Error updating parent state:', e);
+        console.error('Error updating hook:', e);
+        window.postMessage({ type: 'UPDATE_ERROR', error: e.message }, '*');
+      }
+    } else if (event.data.type === 'UPDATE_STATE') {
+      // Handle state updates (class component state)
+      const { targetPath, stateKey, newValue } = event.data;
+      
+      try {
+        let element = null;
+        if (targetPath) {
+          element = document.evaluate(
+            targetPath,
+            document,
+            null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE,
+            null
+          ).singleNodeValue;
+        }
+        
+        if (element) {
+          const fiberKey = Object.keys(element).find((key) => key.startsWith('__reactFiber'));
+          if (fiberKey) {
+            const fiber = element[fiberKey];
+            
+            // Find the component fiber with state
+            let componentFiber = fiber;
+            while (componentFiber) {
+              if (componentFiber.stateNode && componentFiber.stateNode.state && stateKey in componentFiber.stateNode.state) {
+                // Found the component with state
+                const parsedValue = parseValue(newValue);
+                
+                // Update the state
+                const newState = { ...componentFiber.stateNode.state, [stateKey]: parsedValue };
+                componentFiber.stateNode.state = newState;
+                
+                // Try to use setState if available
+                if (typeof componentFiber.stateNode.setState === 'function') {
+                  componentFiber.stateNode.setState({ [stateKey]: parsedValue });
+                  console.log('[HoverComp] State updated via setState');
+                  window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
+                  return;
+                }
+                
+                // Fallback: Update memoizedState and force re-render
+                if (componentFiber.memoizedState) {
+                  componentFiber.memoizedState = newState;
+                }
+                
+                // Update alternate fiber
+                if (componentFiber.alternate) {
+                  if (componentFiber.alternate.stateNode) {
+                    componentFiber.alternate.stateNode.state = newState;
+                  }
+                  if (componentFiber.alternate.memoizedState) {
+                    componentFiber.alternate.memoizedState = newState;
+                  }
+                }
+                
+                // Mark for update and schedule
+                componentFiber.lanes = 1;
+                if (componentFiber.alternate) {
+                  componentFiber.alternate.lanes = 1;
+                }
+                
+                // Schedule update on root
+                let rootFiber = componentFiber;
+                while (rootFiber.return) {
+                  rootFiber = rootFiber.return;
+                }
+                const fiberRoot = rootFiber.stateNode;
+                if (fiberRoot && fiberRoot.current) {
+                  try {
+                    if (typeof fiberRoot.ensureRootIsScheduled === 'function') {
+                      fiberRoot.ensureRootIsScheduled(fiberRoot);
+                    }
+                  } catch (e) {
+                    console.log('[HoverComp] Could not schedule root update:', e.message);
+                  }
+                }
+                
+                console.log('[HoverComp] State updated (fallback method)');
+                window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
+                return;
+              }
+              componentFiber = componentFiber.return;
+            }
+            
+            console.warn('[HoverComp] State not found');
+            window.postMessage({ type: 'UPDATE_ERROR', error: 'State not found' }, '*');
+          }
+        }
+      } catch (e) {
+        console.error('Error updating state:', e);
         window.postMessage({ type: 'UPDATE_ERROR', error: e.message }, '*');
       }
     }
