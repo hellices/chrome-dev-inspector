@@ -506,18 +506,30 @@
 
   /**
    * Get component info for a DOM node with caching
+   * Supports both framework detection and plain HTML mode
    */
-  function getComponentInfo(node) {
+  function getComponentInfo(node, mode = 'auto') {
     if (!node) return null;
 
-    // Check cache
-    const cached = componentCache.get(node);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      return cached.data;
+    // Check cache (only for auto/framework modes)
+    if (mode === 'auto' || mode === 'react' || mode === 'vue2' || mode === 'vue3' || mode === 'angular') {
+      const cached = componentCache.get(node);
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        return cached.data;
+      }
     }
 
-    // Detect component
-    const info = detectComponent(node);
+    let info = null;
+
+    // HTML mode - skip framework detection
+    if (mode === 'html') {
+      // Return null to let content script handle HTML mode formatting
+      // (We can't import htmlHelpers.js here as it's in isolated world)
+      return null;
+    }
+
+    // Detect component (framework mode)
+    info = detectComponent(node);
     
     // Add CSS information
     if (info && node instanceof HTMLElement) {
@@ -572,11 +584,13 @@
       info.css = cssInfo;
     }
 
-    // Cache result
-    componentCache.set(node, {
-      data: info,
-      timestamp: Date.now(),
-    });
+    // Cache result (only for framework modes)
+    if (mode !== 'html') {
+      componentCache.set(node, {
+        data: info,
+        timestamp: Date.now(),
+      });
+    }
 
     return info;
   }
@@ -611,7 +625,7 @@
         console.error('Error invalidating cache:', e);
       }
     } else if (event.data.type === 'GET_COMPONENT_INFO') {
-      const { targetPath } = event.data;
+      const { targetPath, inspectionMode } = event.data;
 
       // Resolve element from path
       let element = null;
@@ -629,7 +643,7 @@
         console.error('Error resolving element:', e);
       }
 
-      const componentInfo = element ? getComponentInfo(element) : null;
+      const componentInfo = element ? getComponentInfo(element, inspectionMode || 'auto') : null;
 
       // Add React component DOM node XPath if available
       let reactComponentXPath = null;

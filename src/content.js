@@ -3,12 +3,14 @@
  * Handles hover events, overlay rendering, and communication with inpage script
  */
 
-import { THROTTLE_MS, TOGGLE_SHORTCUT, DEFAULT_EXPANDED_SECTIONS } from './config/constants.js';
+import { THROTTLE_MS, TOGGLE_SHORTCUT, DEFAULT_EXPANDED_SECTIONS, OVERLAY_Z_INDEX } from './config/constants.js';
 import { getXPath, injectScript, escapeHtml } from './utils/domHelpers.js';
 import { createContentMessageHandler, requestComponentInfo, invalidateCache } from './utils/messageHandler.js';
 import { calculatePanelPosition, adjustPanelPosition, applyPanelPosition } from './utils/panelPosition.js';
 import { formatComponentInfo } from './utils/formatters.js';
 import { getCSSInfo } from './utils/cssHelper.js';
+import { getHtmlElementInfo, formatHtmlElementInfo } from './utils/htmlHelpers.js';
+import { detectComponent } from './utils/frameworkDetect.js';
 import { 
   createOverlay, 
   showOverlay, 
@@ -26,7 +28,11 @@ import {
   setupStyleToggleHandlers,
   setupComputedStyleHandlers,
   setupToggleSectionHandlers,
-  restoreExpandedSections
+  restoreExpandedSections,
+  setupEditableTextContentHandler,
+  setupEditableAttributeHandlers,
+  setupHtmlClassToggleHandlers,
+  setupHtmlStyleToggleHandlers
 } from './overlay/eventHandlers.js';
 import {
   setupAddClassHandlers,
@@ -46,8 +52,171 @@ const state = {
   isPinned: false,
   pinnedPosition: null,
   expandedSections: { ...DEFAULT_EXPANDED_SECTIONS },
-  currentUrl: window.location.href
+  currentUrl: window.location.href,
+  inspectionMode: 'auto', // 'auto', 'react', 'html', 'vue', etc.
+  detectedFrameworks: [] // List of detected frameworks on the page
 };
+
+// ============================================================================
+// Framework Detection & Mode Management
+// ============================================================================
+
+  function detectFrameworksOnPage() {
+    const frameworks = [];
+    
+    // Check for React
+    if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__?.renderers) {
+      frameworks.push('react');
+    }
+    
+    // Check for Vue 2
+    if (window.Vue || document.querySelector('[data-v-]')) {
+      frameworks.push('vue2');
+    }
+    
+    // Check for Vue 3
+    if (window.__VUE__ || document.querySelector('[data-v-app]')) {
+      frameworks.push('vue3');
+    }
+    
+    // Check for Angular
+    if (window.ng || window.getAllAngularRootElements) {
+      frameworks.push('angular');
+    }
+    
+    return frameworks;
+  }
+
+  function updateDetectedFrameworks() {
+    state.detectedFrameworks = detectFrameworksOnPage();
+    console.log('[HoverComp] Detected frameworks:', state.detectedFrameworks);
+    
+    // Update mode selector UI if it exists
+    updateModeSelector();
+  }
+
+  function setInspectionMode(mode) {
+    const validModes = ['auto', 'html', ...state.detectedFrameworks];
+    if (validModes.includes(mode)) {
+      state.inspectionMode = mode;
+      console.log('[HoverComp] Inspection mode set to:', mode);
+      
+      // Update UI
+      updateModeSelector();
+      
+      // Refresh current overlay if present
+      if (state.currentTarget) {
+        requestComponentInfo(state.currentTarget, state.inspectionMode);
+      }
+      
+      return true;
+    }
+    return false;
+  }
+
+  function createModeSelector() {
+    // Remove existing selector if present
+    const existing = document.getElementById('hovercomp-mode-selector');
+    if (existing) {
+      existing.remove();
+    }
+    
+    const selector = document.createElement('div');
+    selector.id = 'hovercomp-mode-selector';
+    selector.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: ${OVERLAY_Z_INDEX + 1};
+      background: rgba(20, 20, 20, 0.95);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 11px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: none;
+    `;
+    
+    // Build selector HTML
+    let html = `<div style="font-weight: bold; margin-bottom: 8px; color: #61dafb;">🔍 Inspection Mode</div>`;
+    html += `<div style="display: flex; flex-direction: column; gap: 6px;">`;
+    
+    // Auto mode (always available)
+    html += `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">`;
+    html += `<input type="radio" name="inspection-mode" value="auto" ${state.inspectionMode === 'auto' ? 'checked' : ''} style="accent-color: #61dafb;">`;
+    html += `<span>Auto (Framework First)</span>`;
+    html += `</label>`;
+    
+    // Framework modes (only if detected)
+    if (state.detectedFrameworks.includes('react')) {
+      html += `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">`;
+      html += `<input type="radio" name="inspection-mode" value="react" ${state.inspectionMode === 'react' ? 'checked' : ''} style="accent-color: #61dafb;">`;
+      html += `<span style="color: #61dafb;">⚛️ React Mode</span>`;
+      html += `</label>`;
+    }
+    
+    if (state.detectedFrameworks.includes('vue2') || state.detectedFrameworks.includes('vue3')) {
+      const vueMode = state.detectedFrameworks.includes('vue3') ? 'vue3' : 'vue2';
+      html += `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">`;
+      html += `<input type="radio" name="inspection-mode" value="${vueMode}" ${state.inspectionMode === vueMode ? 'checked' : ''} style="accent-color: #42b883;">`;
+      html += `<span style="color: #42b883;">💚 Vue Mode</span>`;
+      html += `</label>`;
+    }
+    
+    if (state.detectedFrameworks.includes('angular')) {
+      html += `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">`;
+      html += `<input type="radio" name="inspection-mode" value="angular" ${state.inspectionMode === 'angular' ? 'checked' : ''} style="accent-color: #dd0031;">`;
+      html += `<span style="color: #dd0031;">🅰️ Angular Mode</span>`;
+      html += `</label>`;
+    }
+    
+    // HTML mode (always available)
+    html += `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">`;
+    html += `<input type="radio" name="inspection-mode" value="html" ${state.inspectionMode === 'html' ? 'checked' : ''} style="accent-color: #ff9800;">`;
+    html += `<span style="color: #ff9800;">📄 HTML Mode</span>`;
+    html += `</label>`;
+    
+    html += `</div>`;
+    html += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); color: #666; font-size: 9px;">`;
+    html += `Press Alt+Shift+M to toggle`;
+    html += `</div>`;
+    
+    selector.innerHTML = html;
+    
+    // Add event listeners
+    selector.querySelectorAll('input[name="inspection-mode"]').forEach(input => {
+      input.addEventListener('change', (e) => {
+        setInspectionMode(e.target.value);
+      });
+    });
+    
+    document.body.appendChild(selector);
+    return selector;
+  }
+
+  function updateModeSelector() {
+    const selector = document.getElementById('hovercomp-mode-selector');
+    if (selector) {
+      // Recreate to update options
+      createModeSelector();
+    }
+  }
+
+  function toggleModeSelector() {
+    let selector = document.getElementById('hovercomp-mode-selector');
+    if (!selector) {
+      selector = createModeSelector();
+    }
+    
+    if (selector.style.display === 'none' || !selector.style.display) {
+      selector.style.display = 'block';
+    } else {
+      selector.style.display = 'none';
+    }
+  }
 
 // ============================================================================
 // Initialization
@@ -68,6 +237,38 @@ const state = {
     }
     if (!state.reactOverlay) {
       state.reactOverlay = createReactOverlay();
+    }
+
+    // If HTML mode is forced, use HTML element info
+    if (state.inspectionMode === 'html' && element instanceof HTMLElement) {
+      const htmlInfo = getHtmlElementInfo(element);
+      if (htmlInfo) {
+        showOverlay(state.overlay, element);
+        hideReactOverlay(state.reactOverlay);
+        
+        const panel = getPanel(state.overlay);
+        if (panel) {
+          // Position panel
+          if (state.isPinned && state.pinnedPosition) {
+            applyPanelPosition(panel, state.pinnedPosition, true);
+          } else if (mouseX && mouseY) {
+            const panelRect = panel.getBoundingClientRect();
+            const position = calculatePanelPosition(mouseX, mouseY, panelRect);
+            applyPanelPosition(panel, position, false);
+            setTimeout(() => adjustPanelPosition(panel), 50);
+          }
+
+          // Update content with HTML mode formatter
+          const html = formatHtmlElementInfo(htmlInfo, state.isPinned);
+          updatePanelContent(panel, html);
+
+          // Setup event handlers
+          setupAllEventHandlers(panel, element);
+          restoreExpandedSections(panel, state.expandedSections);
+          setTimeout(() => adjustPanelPosition(panel), 100);
+        }
+        return;
+      }
     }
 
     if (!componentInfo) {
@@ -147,16 +348,30 @@ const state = {
   function setupAllEventHandlers(panel, element) {
     const refreshOverlay = (el) => {
       invalidateCache(el);
-      setTimeout(() => requestComponentInfo(el), 10);
+      setTimeout(() => requestComponentInfo(el, state.inspectionMode), 10);
     };
 
-    setupEditableHookHandlers(panel, element);
-    setupEditableStateHandlers(panel, element);
-    setupClassToggleHandlers(panel, element, refreshOverlay);
-    setupStyleToggleHandlers(panel, element, refreshOverlay);
-    setupComputedStyleHandlers(panel, element);
-    setupAddClassHandlers(panel, element, refreshOverlay);
-    setupAddStyleHandlers(panel, element, refreshOverlay);
+    // HTML mode handlers
+    if (state.inspectionMode === 'html') {
+      setupEditableTextContentHandler(panel, element);
+      setupEditableAttributeHandlers(panel, element, refreshOverlay);
+      setupClassToggleHandlers(panel, element, refreshOverlay); // Use standard handler
+      setupStyleToggleHandlers(panel, element, refreshOverlay); // Use standard handler
+      setupComputedStyleHandlers(panel, element); // Add computed styles handler
+      setupAddClassHandlers(panel, element, refreshOverlay);
+      setupAddStyleHandlers(panel, element, refreshOverlay);
+    } else {
+      // Framework mode handlers (React, Vue, etc.)
+      setupEditableHookHandlers(panel, element);
+      setupEditableStateHandlers(panel, element);
+      setupClassToggleHandlers(panel, element, refreshOverlay);
+      setupStyleToggleHandlers(panel, element, refreshOverlay);
+      setupComputedStyleHandlers(panel, element);
+      setupAddClassHandlers(panel, element, refreshOverlay);
+      setupAddStyleHandlers(panel, element, refreshOverlay);
+    }
+    
+    // Toggle sections handler (common for all modes)
     setupToggleSectionHandlers(panel, state.expandedSections, () => {
       adjustPanelPosition(panel);
       if (state.isPinned && panel) {
@@ -206,7 +421,7 @@ const state = {
     state.currentTarget._mouseX = mouseX;
     state.currentTarget._mouseY = mouseY;
 
-    requestComponentInfo(target);
+    requestComponentInfo(target, state.inspectionMode);
   }
 
   function handleClick(event) {
@@ -237,7 +452,7 @@ const state = {
     
     // Refresh overlay to show pinned state
     if (state.currentTarget) {
-      requestComponentInfo(state.currentTarget);
+      requestComponentInfo(state.currentTarget, state.inspectionMode);
     }
   }
 
@@ -369,6 +584,12 @@ const state = {
       event.preventDefault();
       toggleEnabled();
     }
+    
+    // Alt+Shift+M to toggle mode selector
+    if (event.altKey && event.shiftKey && event.code === 'KeyM') {
+      event.preventDefault();
+      toggleModeSelector();
+    }
   }
 
   function toggleEnabled() {
@@ -398,6 +619,23 @@ const state = {
   function init() {
     injectInPageScript();
     monitorUrlChanges();
+    
+    // Detect frameworks on page
+    setTimeout(() => {
+      updateDetectedFrameworks();
+      
+      // Auto-show mode selector if frameworks detected
+      if (state.detectedFrameworks.length > 0) {
+        setTimeout(() => {
+          const selector = createModeSelector();
+          selector.style.display = 'block';
+          // Auto-hide after 5 seconds
+          setTimeout(() => {
+            selector.style.display = 'none';
+          }, 5000);
+        }, 1000);
+      }
+    }, 2000);
 
     document.addEventListener('mousemove', handleMouseMove, true);
     document.addEventListener('click', handleClick, true);

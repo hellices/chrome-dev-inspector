@@ -25,6 +25,7 @@
         "src/utils/messageHandler.js",
         "src/utils/cssHelper.js",
         "src/utils/reactHelpers.js",
+        "src/utils/htmlHelpers.js",
         "src/utils/formatters.js",
         "src/utils/frameworkDetect.js",
         "src/utils/throttle.js",

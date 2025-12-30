@@ -69,10 +69,11 @@ export function postMessage(type, data = {}) {
 /**
  * Request component info for an element
  * @param {HTMLElement} element - Target element
+ * @param {string} inspectionMode - Inspection mode ('auto', 'react', 'html', etc.)
  */
-export function requestComponentInfo(element) {
+export function requestComponentInfo(element, inspectionMode = 'auto') {
   const xpath = getXPath(element);
-  postMessage(MESSAGE_TYPES.GET_COMPONENT_INFO, { targetPath: xpath });
+  postMessage(MESSAGE_TYPES.GET_COMPONENT_INFO, { targetPath: xpath, inspectionMode });
 }
 
 /**

@@ -1,339 +1,196 @@
 # HoverComp Dev Inspector
 
-A Chrome extension (Manifest V3) that enables hover-based component inspection for React, Vue, Angular, and Web Components in development builds.
+> Lightweight Chrome DevTools extension for instant component inspection on hover
 
-## 🎯 Features
+<p align="center">
+  <img src="https://img.shields.io/badge/manifest-v3-blue" alt="Manifest V3">
+  <img src="https://img.shields.io/badge/react-supported-61dafb" alt="React">
+  <img src="https://img.shields.io/badge/vue-supported-42b883" alt="Vue">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
+</p>
 
-- **Hover Detection**: Instantly displays detailed component information when hovering over UI elements
-- **Comprehensive Component Inspector**:
-  - Component name and type (User vs Library component)
-  - Component hierarchy (parent-child relationships)
-  - Props with live values
-  - State and Hooks inspection
-  - CSS information (classes, inline styles, computed styles, matched rules)
-- **Interactive Debugging**:
-  - Click to expand/collapse sections
-  - Edit prop values in real-time
-  - Visual highlighting of inspected elements
-- **Multi-Framework Support**:
-  - React (with DevTools hooks) - Full feature support
-  - Vue 2 & Vue 3
-  - Angular (Ivy)
-  - Web Components
-- **Smart Filtering**: Prioritizes user-created components over library components
-- **Keyboard Toggle**: Press `Alt+Shift+C` to enable/disable the inspector
-- **Performance Optimized**: Built-in throttling and caching for smooth performance
-- **Dev-Mode Only**: Designed to work with development builds
+A Chrome extension that provides real-time component inspection for modern web frameworks. Simply hover over any element to see component details, edit state, toggle styles, and more—without opening DevTools.
 
-## 🚀 Installation
+## Features
 
-### Load as Unpacked Extension
+### Instant Inspection
+Point at any element to see its component details—no clicking, no DevTools panel switching.
 
-1. Clone this repository:
+### Framework-Aware
+- **React**: Component tree, props, state, hooks (with live editing)
+- **Vue**: Component hierarchy and reactive data
+- **Angular**: Component metadata
+- **Plain HTML**: DOM structure, attributes, styles
 
-   ```bash
-   git clone https://github.com/hellices/chrome-dev-inspector.git
-   cd chrome-dev-inspector
-   ```
+### Live Editing
+- Modify hook values and state directly in the overlay
+- Toggle CSS classes and styles with one click
+- Add new classes and inline styles on the fly
+- Disable computed styles to test layout changes
 
-2. Install dependencies and run tests:
+### Flexible Modes
+Switch between Auto (framework detection), React, HTML, Vue, or Angular modes depending on your needs.
 
-   ```bash
-   npm install
-   npm test
-   ```
+### Keyboard Shortcuts
+- `Alt+Shift+C` — Toggle inspector
+- `Alt+Shift+M` — Open mode selector
+- `Alt+Click` — Pin overlay  
+  💡 *Tip: Use Alt+Shift+C to toggle • Alt+Shift+M for menu • Alt+Click to unpin*
 
-3. Open Chrome and navigate to `chrome://extensions/`
+## Installation
 
-4. Enable "Developer mode" (toggle in the top-right corner)
-
-5. Click "Load unpacked" and select the extension directory
-
-6. The extension will now be active on `localhost`, `127.0.0.1`, and `*.local` domains
-
-## 📖 Usage
-
-1. Open a web application running in development mode (React, Vue, Angular, or Web Components)
-
-2. The extension is enabled by default - simply hover over any UI element
-
-3. A detailed panel will appear showing:
-   - **Component Info**: Framework name, component name, and type (user/library)
-   - **Component Hierarchy**: Parent-child component tree
-   - **Props**: All props with their current values (click "Edit" to modify)
-   - **Hooks**: State values and hook information
-   - **CSS**: Classes, inline styles, computed styles, and matched CSS rules
-
-4. **Interactive Features**:
-   - Click section headers (▼) to expand/collapse
-   - Click "Edit" buttons next to props to modify values in real-time
-   - Changes are applied immediately to the component
-
-5. Press `Alt+Shift+C` to toggle the inspector on/off
-
-### Example Output
-
-```
-React: MyButton ✓ User Component
-Component Hierarchy: App → Dashboard → MyButton
-
-▼ Props (3)
-  variant: "primary" [Edit]
-  onClick: [Function] [Edit]
-  disabled: false [Edit]
-
-▼ Hooks (2)
-  Hook 0: true
-  Hook 1: "hello world"
-
-▼ CSS
-  Classes: btn, btn-primary, custom-button
-  Inline: background-color: blue; padding: 10px;
-  Computed:
-    display: inline-block
-    position: relative
-    backgroundColor: rgb(0, 123, 255)
-  Matched Rules: 3
-```
-
-## 🏗️ Architecture
-
-### File Structure
-
-```
-chrome-dev-inspector/
-├── manifest.json           # Chrome extension manifest (MV3)
-├── src/
-│   ├── config/
-│   │   └── constants.js   # Global constants and configuration
-│   ├── utils/
-│   │   ├── domHelpers.js        # DOM manipulation helpers
-│   │   ├── panelPosition.js     # Panel positioning logic
-│   │   ├── messageHandler.js    # Message communication
-│   │   ├── cssHelper.js         # CSS management utilities
-│   │   ├── reactHelpers.js      # React-specific utilities
-│   │   ├── formatters.js        # UI formatting
-│   │   ├── frameworkDetect.js   # Framework detection
-│   │   └── throttle.js          # Throttle/debounce utilities
-│   ├── overlay/
-│   │   ├── overlayManager.js    # Overlay creation and management
-│   │   ├── eventHandlers.js     # Event handlers
-│   │   ├── advancedHandlers.js  # Advanced UI handlers
-│   │   └── cssFormatter.js      # CSS section formatting
-│   ├── content.js         # Main content script
-│   └── inpage.js          # In-page script (framework detection)
-├── styles/
-│   └── overlay.css        # Overlay styling
-├── tests/
-│   └── ...                # Unit and integration tests
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
-```
-
-### Modular Architecture
-
-The extension is built with a modular architecture for maintainability:
-
-- **Config Layer**: All constants and settings in one place
-- **Utils Layer**: Reusable utility functions for DOM, CSS, messages, etc.
-- **Overlay Layer**: UI components and event handling
-- **Main Scripts**: Thin orchestration layer using the modules
-
-This structure provides:
-- Clear separation of concerns
-- Easy testing of individual modules
-- Better code reusability
-- Simplified maintenance and debugging
-
-### How It Works
-
-1. **Content Script** (`content.js`):
-   - Listens for hover events on the page
-   - Calculates element position for overlay
-   - Communicates with in-page script via `postMessage`
-
-2. **In-Page Script** (`inpage.js`):
-   - Runs in the main world context with access to framework globals
-   - Accesses DevTools hooks (`__REACT_DEVTOOLS_GLOBAL_HOOK__`, `__vue__`, etc.)
-   - Maps DOM nodes to framework components
-   - Returns component information to content script
-
-3. **Overlay**:
-   - Displays component information in a non-intrusive manner
-   - Positioned relative to the hovered element
-   - Auto-hides when moving away from elements
-
-## 🧪 Testing
-
-The extension includes comprehensive test coverage:
+### For Development
 
 ```bash
-# Run all tests
+git clone https://github.com/hellices/chrome-dev-inspector.git
+cd chrome-dev-inspector
+npm install
+npm test
+```
+
+### Load in Chrome
+
+1. Navigate to `chrome://extensions/`
+2. Enable **Developer mode** (top-right corner)
+3. Click **Load unpacked**
+4. Select the `chrome-dev-inspector` directory
+
+The extension activates automatically on `localhost`, `127.0.0.1`, and `*.local` domains.
+
+## Usage
+
+Hover over any element on your page. A panel appears with component information.
+
+### Mode Selection
+
+Press `Alt+Shift+M` to open the mode selector:
+- **Auto**: Detects frameworks automatically
+- **React**: React components only
+- **HTML**: Raw DOM inspection
+- **Vue/Angular**: Available when detected
+
+### Editing
+
+**React Mode:**
+- Click state/hook values to edit (Enter to save, Esc to cancel)
+- Click class names to toggle them
+- Click inline styles to disable/enable
+
+**HTML Mode:**
+- Click text content to edit
+- Click attribute values to modify
+- Toggle classes and styles same as React mode
+
+### Pinning
+
+`Alt+Click` anywhere on the page to pin the overlay in place. Click again to unpin.
+
+## Screenshots
+
+**React Component Inspection**
+```
+⚛️ MovieCard (User Component)
+Hierarchy: App → MovieList → MovieCard
+
+Props (3) 🔒
+  title: "Inception"
+  rating: 8.8
+  onClick: [Function]
+
+Hooks (2) ✏️
+  Hook 0: false    [Click to edit]
+  Hook 1: "saved"  [Click to edit]
+
+Classes (2) ✏️
+  ✓ movie-card
+  ✓ featured
+
+Computed Styles (5) ✏️
+  display: flex
+  padding: 16px
+  border-radius: 8px
+```
+
+**HTML Mode**
+```
+📄 DIV
+Parent: main.container → section.content
+
+Attributes (2) ✏️
+  id: "search-box"
+  data-active: "true"
+
+Classes (1) ✏️
+  ✓ search-wrapper
+
+Inline Styles ✏️
+  ✓ margin: 10px
+  ✓ display: block
+```
+
+## How It Works
+
+The extension uses a three-script architecture:
+
+**Content Script** (`content.js`)  
+Listens for hover events and manages the UI overlay. Handles mode switching and communicates with the in-page script.
+
+**In-Page Script** (`inpage.js`)  
+Runs in the page context with access to framework internals. Detects React/Vue/Angular components via DevTools hooks and extracts component data.
+
+**Overlay Manager**  
+Renders the inspection panel with component details. Handles user interactions like editing state and toggling styles.
+
+### Framework Detection
+
+- **React**: Uses `__REACT_DEVTOOLS_GLOBAL_HOOK__` and fiber tree traversal
+- **Vue**: Accesses `__vue__` (v2) or `__vueParentComponent` (v3)
+- **Angular**: Checks `window.ng.getComponent()` and `__ngContext__`
+- **Web Components**: Detects custom elements and Shadow DOM
+
+The extension prioritizes user components over framework internals for cleaner inspection.
+
+## Development
+
+```bash
+# Run tests
 npm test
 
-# Run tests with coverage report
-npm run test:coverage
-
-# Run tests in watch mode
-npm run test:watch
-```
-
-### Test Coverage
-
-- **Unit Tests**: `throttle.js`, `frameworkDetect.js`
-- **Integration Tests**: Overlay functionality, message handling
-- **Coverage**: 98.7% (exceeds 80% requirement)
-
-## 🔍 Framework Detection
-
-### React
-
-- Uses `window.__REACT_DEVTOOLS_GLOBAL_HOOK__`
-- Traverses Fiber tree to find component names
-- Extracts `displayName`, `name`, or `constructor.name`
-- Filters out library components and prioritizes user components
-- Collects props from `fiber.memoizedProps`
-- Extracts hooks from `fiber.memoizedState`
-- Builds component hierarchy by traversing up the fiber tree
-
-### Vue 2
-
-- Accesses `node.__vue__` instance
-- Reads `$options.name` or `_componentTag`
-
-### Vue 3
-
-- Checks `node.__vueParentComponent` or `node.__vnode`
-- Extracts `type.name` or `__name`
-
-### Angular (Ivy)
-
-- Uses `window.ng.getComponent(node)` in dev mode
-- Falls back to `node.__ngContext__`
-
-### Web Components
-
-- Checks for custom element tag names (contains hyphen)
-- Uses `window.customElements.get(tagName)`
-- Detects Shadow DOM presence
-
-## ⚙️ Development
-
-### Prerequisites
-
-- Node.js 14+
-- npm 6+
-- Chrome browser
-
-### Setup
-
-```bash
-# Install dependencies
-npm install
-
-# Run linting
+# Lint code
 npm run lint
-
-# Fix linting issues
-npm run lint:fix
 
 # Format code
 npm run format
-
-# Check formatting
-npm run format:check
 ```
 
-### Project Scripts
+Tests validate manifest structure, file existence, and module exports.
 
-- `npm test` - Run all tests
-- `npm run test:coverage` - Run tests with coverage report
-- `npm run test:watch` - Run tests in watch mode
-- `npm run lint` - Lint code
-- `npm run lint:fix` - Fix linting issues
-- `npm run format` - Format code with Prettier
-- `npm run format:check` - Check code formatting
+## Configuration
 
-## ⚠️ Limitations
+Edit `manifest.json` to change permissions:
 
-### Development Builds Only
+```json
+"host_permissions": [
+  "http://localhost/*",
+  "http://127.0.0.1/*",
+  "http://*.local/*"
+]
+```
 
-This extension **only works with development builds** of applications. Production builds typically:
+Add more domains as needed. The extension only works on sites with explicit permission.
 
-- Remove debug information
-- Minify component names
-- Strip DevTools hooks
-- Obfuscate code
+## Known Issues
 
-### Browser Support
+- **Production builds**: Component names may be minified or unavailable
+- **HOCs**: Higher-order components might not display the wrapped component name
+- **Performance**: Heavy component trees may slow down inspection
 
-- Chrome (Manifest V3)
-- Chromium-based browsers (Edge, Brave, etc.)
-
-### Domain Restrictions
-
-By default, the extension only runs on:
-
-- `http://localhost/*`
-- `http://127.0.0.1/*`
-- `http://*.local/*`
-
-This can be modified in `manifest.json` under `host_permissions` and `content_scripts.matches`.
-
-### Framework Requirements
-
-- React: Requires React DevTools hook (present in dev builds)
-- Vue: Requires instance attachment to DOM nodes
-- Angular: Requires Ivy renderer and dev mode
-- Web Components: Works in all modes
-
-## 🔐 Security & Privacy
-
-- **Read-Only Access**: Only reads DOM and framework metadata
-- **No Data Storage**: No user data is collected or stored
-- **Local Only**: Designed for local development environments
-- **No Network Requests**: All processing happens locally
-
-## 📝 License
+## License
 
 MIT
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please ensure:
+Pull requests are welcome. For major changes, open an issue first to discuss the proposal.
 
-1. All tests pass (`npm test`)
-2. Code is linted (`npm run lint`)
-3. Code is formatted (`npm run format`)
-4. Test coverage remains above 80%
-
-## 📚 Additional Resources
-
-- [Chrome Extension Development](https://developer.chrome.com/docs/extensions/mv3/)
-- [React DevTools](https://github.com/facebook/react/tree/main/packages/react-devtools)
-- [Vue DevTools](https://github.com/vuejs/devtools)
-- [Angular DevTools](https://angular.io/guide/devtools)
-
-## 🐛 Troubleshooting
-
-### Extension Not Working?
-
-1. **Check you're in development mode**: Production builds won't work
-2. **Verify the domain**: Extension only runs on localhost by default
-3. **Check console for errors**: Open DevTools and look for extension logs
-4. **Toggle the extension**: Try pressing `Alt+Shift+C`
-5. **Reload the extension**: Go to `chrome://extensions/` and reload
-
-### No Component Names Showing?
-
-- Ensure your framework is running in development mode
-- Check that DevTools extensions are enabled for your framework
-- Some HOCs or wrapped components may not expose names properly
-
-### Performance Issues?
-
-- The extension uses throttling (50ms) to prevent performance issues
-- If experiencing lag, try disabling the extension when not needed
-- Component detection is cached for 1 second per element
+Run `npm test` before submitting to ensure all checks pass.

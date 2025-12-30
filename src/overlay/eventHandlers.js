@@ -112,19 +112,33 @@ export function setupEditableStateHandlers(panel, element) {
  * @param {Function} refreshCallback - Callback to refresh overlay
  */
 export function setupClassToggleHandlers(panel, element, refreshCallback) {
-  panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_CLASS}`).forEach(span => {
-    span.onclick = (e) => {
-      e.stopPropagation();
-      const className = span.getAttribute('data-class');
-      const isActive = span.getAttribute('data-active') === 'true';
-      
-      toggleClass(element, className, !isActive);
-      
-      span.setAttribute('data-active', (!isActive).toString());
-      span.style.textDecoration = isActive ? 'line-through' : 'none';
-      span.style.opacity = isActive ? '0.5' : '1';
-      span.style.background = isActive ? 'rgba(255,255,255,0.05)' : 'rgba(66,165,245,0.2)';
-    };
+  // Support both old and new class names
+  const selectors = [`.${CSS_CLASSES.TOGGLE_CLASS}`, '.hovercomp-toggle-class'];
+  selectors.forEach(selector => {
+    panel.querySelectorAll(selector).forEach(span => {
+      span.onclick = (e) => {
+        e.stopPropagation();
+        const className = span.getAttribute('data-class');
+        const isActive = span.getAttribute('data-active') === 'true';
+        
+        toggleClass(element, className, !isActive);
+        
+        span.setAttribute('data-active', (!isActive).toString());
+        span.style.textDecoration = isActive ? 'line-through' : 'none';
+        span.style.opacity = isActive ? '0.5' : '1';
+        span.style.background = isActive ? 'rgba(255,255,255,0.05)' : 'rgba(66,165,245,0.2)';
+        
+        // Update checkmark for new style
+        if (selector === '.hovercomp-toggle-class') {
+          const text = span.textContent;
+          if (isActive) {
+            span.textContent = text.replace('✓ ', '✗ ');
+          } else {
+            span.textContent = text.replace('✗ ', '✓ ');
+          }
+        }
+      };
+    });
   });
   
   panel.querySelectorAll(`.${CSS_CLASSES.DELETE_CLASS}`).forEach(deleteBtn => {
@@ -214,31 +228,35 @@ export function setupStyleToggleHandlers(panel, element, refreshCallback) {
  * @param {HTMLElement} element - Target element
  */
 export function setupComputedStyleHandlers(panel, element) {
-  panel.querySelectorAll(`.${CSS_CLASSES.COMPUTED_STYLE_ITEM}`).forEach(item => {
-    item.onclick = (e) => {
-      e.stopPropagation();
-      const styleProp = item.getAttribute('data-style-prop');
-      const styleValue = item.getAttribute('data-style-value');
-      const isActive = item.getAttribute('data-active') === 'true';
-      
-      if (isActive) {
-        // Disable by setting to opposite or neutral value with !important
-        const disabledValue = getDisabledValue(styleProp);
-        element.style.setProperty(styleProp, disabledValue, 'important');
-        item.setAttribute('data-active', 'false');
-        item.setAttribute('data-disabled-value', disabledValue);
-        item.style.textDecoration = 'line-through';
-        item.style.opacity = '0.5';
-        item.style.background = 'rgba(255,255,255,0.05)';
-      } else {
-        // Enable by removing our override (let original styles apply)
-        element.style.removeProperty(styleProp);
-        item.setAttribute('data-active', 'true');
-        item.style.textDecoration = 'none';
-        item.style.opacity = '1';
-        item.style.background = 'transparent';
-      }
-    };
+  // Support both old and new class names
+  const selectors = [`.${CSS_CLASSES.COMPUTED_STYLE_ITEM}`, '.hovercomp-computed-style-item'];
+  selectors.forEach(selector => {
+    panel.querySelectorAll(selector).forEach(item => {
+      item.onclick = (e) => {
+        e.stopPropagation();
+        const styleProp = item.getAttribute('data-style-prop');
+        const styleValue = item.getAttribute('data-style-value');
+        const isActive = item.getAttribute('data-active') === 'true';
+        
+        if (isActive) {
+          // Disable by setting to opposite or neutral value with !important
+          const disabledValue = getDisabledValue(styleProp);
+          element.style.setProperty(styleProp, disabledValue, 'important');
+          item.setAttribute('data-active', 'false');
+          item.setAttribute('data-disabled-value', disabledValue);
+          item.style.textDecoration = 'line-through';
+          item.style.opacity = '0.5';
+          item.style.background = 'rgba(255,255,255,0.05)';
+        } else {
+          // Enable by removing our override (let original styles apply)
+          element.style.removeProperty(styleProp);
+          item.setAttribute('data-active', 'true');
+          item.style.textDecoration = 'none';
+          item.style.opacity = '1';
+          item.style.background = selector === '.hovercomp-computed-style-item' ? 'rgba(77,182,172,0.2)' : 'transparent';
+        }
+      };
+    });
   });
 }
 
@@ -317,4 +335,142 @@ function selectAllText(element) {
   const sel = window.getSelection();
   sel.removeAllRanges();
   sel.addRange(range);
+}
+
+// ============================================================================
+// HTML Mode Handlers
+// ============================================================================
+
+/**
+ * Setup editable text content handler for HTML mode
+ * @param {HTMLElement} panel - Panel element
+ * @param {HTMLElement} element - Target DOM element
+ */
+export function setupEditableTextContentHandler(panel, element) {
+  const textContentDiv = panel.querySelector('[data-editable-text-content]');
+  if (!textContentDiv) return;
+
+  const originalValue = element.textContent || '';
+
+  // Click to enable editing
+  textContentDiv.onclick = (e) => {
+    if (textContentDiv.getAttribute('contenteditable') === 'false') {
+      e.stopPropagation();
+      textContentDiv.setAttribute('contenteditable', 'true');
+      textContentDiv.focus();
+      selectAllText(textContentDiv);
+    }
+  };
+
+  textContentDiv.onfocus = (e) => {
+    e.stopPropagation();
+    textContentDiv.style.background = 'rgba(129,199,132,0.3)';
+    textContentDiv.style.outline = '2px solid #81c784';
+  };
+
+  textContentDiv.onblur = (e) => {
+    textContentDiv.setAttribute('contenteditable', 'false');
+    textContentDiv.style.background = 'rgba(0,0,0,0.3)';
+    textContentDiv.style.outline = 'none';
+    
+    const newValue = textContentDiv.textContent;
+    if (newValue !== originalValue) {
+      element.textContent = newValue;
+      console.log('[HoverComp] Text content updated');
+    }
+  };
+
+  textContentDiv.onkeydown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      textContentDiv.blur();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      textContentDiv.textContent = originalValue;
+      textContentDiv.blur();
+    }
+  };
+}
+
+/**
+ * Setup editable attribute handlers for HTML mode
+ * @param {HTMLElement} panel - Panel element
+ * @param {HTMLElement} element - Target DOM element
+ * @param {Function} refreshOverlay - Callback to refresh overlay
+ */
+export function setupEditableAttributeHandlers(panel, element, refreshOverlay) {
+  panel.querySelectorAll('[data-editable-attribute]').forEach(attrDiv => {
+    const attrName = attrDiv.getAttribute('data-attribute-name');
+    const originalValue = element.getAttribute(attrName) || '';
+
+    // Click to enable editing
+    attrDiv.onclick = (e) => {
+      if (attrDiv.getAttribute('contenteditable') === 'false') {
+        e.stopPropagation();
+        attrDiv.setAttribute('contenteditable', 'true');
+        attrDiv.focus();
+        selectAllText(attrDiv);
+      }
+    };
+
+    attrDiv.onfocus = (e) => {
+      e.stopPropagation();
+      attrDiv.style.background = 'rgba(255,167,38,0.3)';
+      attrDiv.style.outline = '2px solid #ffa726';
+    };
+
+    attrDiv.onblur = (e) => {
+      attrDiv.setAttribute('contenteditable', 'false');
+      attrDiv.style.background = 'transparent';
+      attrDiv.style.outline = 'none';
+      
+      const newValue = attrDiv.textContent.trim().replace(/^"|"$/g, ''); // Remove quotes
+      if (newValue !== originalValue) {
+        if (newValue === '') {
+          element.removeAttribute(attrName);
+        } else {
+          element.setAttribute(attrName, newValue);
+        }
+        console.log(`[HoverComp] Attribute ${attrName} updated to: ${newValue}`);
+        if (refreshOverlay) {
+          setTimeout(() => refreshOverlay(element), 100);
+        }
+      }
+    };
+
+    attrDiv.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        attrDiv.blur();
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        attrDiv.textContent = `"${originalValue}"`;
+        attrDiv.blur();
+      }
+    };
+  });
+}
+
+/**
+ * Setup class toggle handlers for HTML mode (similar to React mode)
+ * @param {HTMLElement} panel - Panel element
+ * @param {HTMLElement} element - Target DOM element
+ * @param {Function} refreshOverlay - Callback to refresh overlay
+ */
+export function setupHtmlClassToggleHandlers(panel, element, refreshOverlay) {
+  // Reuse the existing setupClassToggleHandlers
+  setupClassToggleHandlers(panel, element, refreshOverlay);
+}
+
+/**
+ * Setup inline style toggle handlers for HTML mode
+ * @param {HTMLElement} panel - Panel element
+ * @param {HTMLElement} element - Target DOM element
+ * @param {Function} refreshOverlay - Callback to refresh overlay
+ */
+export function setupHtmlStyleToggleHandlers(panel, element, refreshOverlay) {
+  // Reuse the existing setupStyleToggleHandlers
+  setupStyleToggleHandlers(panel, element, refreshOverlay);
 }

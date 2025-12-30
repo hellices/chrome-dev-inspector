@@ -20,7 +20,7 @@ import {
  * @param {HTMLElement} node - DOM node to inspect
  * @returns {Object|null} Component info or null
  */
-function detectReact(node) {
+export function detectReact(node) {
   try {
     const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
     if (!hook || !hook.renderers) {
@@ -201,7 +201,7 @@ function detectReact(node) {
  * @param {HTMLElement} node - DOM node to inspect
  * @returns {Object|null} Component info or null
  */
-function detectVue2(node) {
+export function detectVue2(node) {
   try {
     const vue = node.__vue__;
     if (vue) {
@@ -227,7 +227,7 @@ function detectVue2(node) {
  * @param {HTMLElement} node - DOM node to inspect
  * @returns {Object|null} Component info or null
  */
-function detectVue3(node) {
+export function detectVue3(node) {
   try {
     // Check for Vue 3 instance
     const vueInstance = node.__vueParentComponent || node.__vnode;
@@ -253,7 +253,7 @@ function detectVue3(node) {
  * @param {HTMLElement} node - DOM node to inspect
  * @returns {Object|null} Component info or null
  */
-function detectAngular(node) {
+export function detectAngular(node) {
   try {
     // Angular Ivy (9+)
     if (window.ng && window.ng.getComponent) {
@@ -292,7 +292,7 @@ function detectAngular(node) {
  * @param {HTMLElement} node - DOM node to inspect
  * @returns {Object|null} Component info or null
  */
-function detectWebComponent(node) {
+export function detectWebComponent(node) {
   try {
     const tagName = node.tagName?.toLowerCase();
     if (tagName && tagName.includes('-')) {
@@ -324,7 +324,7 @@ function detectWebComponent(node) {
  * @param {HTMLElement} node - DOM node to inspect
  * @returns {Object|null} Component info or null
  */
-function detectComponent(node) {
+export function detectComponent(node) {
   if (!node || !(node instanceof HTMLElement)) {
     return null;
   }
