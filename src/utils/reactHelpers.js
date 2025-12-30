@@ -33,9 +33,10 @@ export function isFromNodeModules(fileName) {
 /**
  * Check if component name matches known framework components
  * @param {string} name - Component name
+ * @param {string} fileName - File name or path
  * @returns {boolean} True if known framework component
  */
-export function isKnownFrameworkComponent(name) {
+export function isKnownFrameworkComponent(name, fileName = '') {
   return KNOWN_FRAMEWORK_COMPONENTS.includes(name) || 
          (name.endsWith('Component') && KNOWN_FRAMEWORK_COMPONENTS.some(fw => name.includes(fw))) ||
          name.includes('ServerRoot') || 
