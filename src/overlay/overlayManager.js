@@ -13,7 +13,7 @@ export function createOverlay() {
   div.id = 'hovercomp-overlay';
   div.className = CSS_CLASSES.OVERLAY;
   div.style.cssText = `
-    position: fixed;
+    position: absolute;
     z-index: ${OVERLAY_Z_INDEX};
     pointer-events: none;
     display: none;
@@ -24,6 +24,28 @@ export function createOverlay() {
 
   const panel = createPanel();
   div.appendChild(panel);
+  document.body.appendChild(div);
+  
+  return div;
+}
+
+/**
+ * Create React component overlay element (lighter, no panel)
+ * @returns {HTMLElement} React overlay element
+ */
+export function createReactOverlay() {
+  const div = document.createElement('div');
+  div.id = 'hovercomp-react-overlay';
+  div.className = CSS_CLASSES.OVERLAY + '-react';
+  div.style.cssText = `
+    position: absolute;
+    z-index: ${OVERLAY_Z_INDEX - 1};
+    pointer-events: none;
+    display: none;
+    background: rgba(156, 39, 176, 0.05);
+    border: 2px dashed rgba(156, 39, 176, 0.4);
+    box-sizing: border-box;
+  `;
   document.body.appendChild(div);
   
   return div;
@@ -73,10 +95,26 @@ export function showOverlay(overlay, element) {
   
   const rect = element.getBoundingClientRect();
   overlay.style.display = 'block';
-  overlay.style.top = `${rect.top}px`;
-  overlay.style.left = `${rect.left}px`;
+  overlay.style.top = `${rect.top + window.scrollY}px`;
+  overlay.style.left = `${rect.left + window.scrollX}px`;
   overlay.style.width = `${rect.width}px`;
   overlay.style.height = `${rect.height}px`;
+}
+
+/**
+ * Show React component overlay for element
+ * @param {HTMLElement} reactOverlay - React overlay element
+ * @param {HTMLElement} element - Target element
+ */
+export function showReactOverlay(reactOverlay, element) {
+  if (!reactOverlay || !element) return;
+  
+  const rect = element.getBoundingClientRect();
+  reactOverlay.style.display = 'block';
+  reactOverlay.style.top = `${rect.top + window.scrollY}px`;
+  reactOverlay.style.left = `${rect.left + window.scrollX}px`;
+  reactOverlay.style.width = `${rect.width}px`;
+  reactOverlay.style.height = `${rect.height}px`;
 }
 
 /**
@@ -86,6 +124,16 @@ export function showOverlay(overlay, element) {
 export function hideOverlay(overlay) {
   if (overlay) {
     overlay.style.display = 'none';
+  }
+}
+
+/**
+ * Hide React component overlay
+ * @param {HTMLElement} reactOverlay - React overlay element
+ */
+export function hideReactOverlay(reactOverlay) {
+  if (reactOverlay) {
+    reactOverlay.style.display = 'none';
   }
 }
 

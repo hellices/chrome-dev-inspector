@@ -208,6 +208,24 @@
             .filter(c => c.isUserComponent || c.name.match(/^(App|Layout|Page|Document|Main)$/))
             .map(c => `${c.name}${c.score ? ` (${c.score})` : ''}`);
           
+          // Find React component's root DOM node
+          const fiberKey = Object.keys(node).find((key) => key.startsWith('__reactFiber'));
+          let componentDomNode = null;
+          if (fiberKey) {
+            let fiber = node[fiberKey];
+            // Walk up to find the target component fiber
+            while (fiber) {
+              const componentType = fiber.type;
+              const name = componentType?.displayName || componentType?.name;
+              if (name === targetComponent.name) {
+                // Found the component, now find its DOM node
+                componentDomNode = findDomNodeForFiber(fiber);
+                break;
+              }
+              fiber = fiber.return;
+            }
+          }
+          
           return {
             framework: 'React',
             name: targetComponent.name,
@@ -221,7 +239,8 @@
             allUserComponents: userComponents.map(c => `${c.name} (${c.score})`),
             fileName: targetComponent.fileName,
             ownerFileName: targetComponent.ownerFileName,
-            isFromNodeModules: targetComponent.isFromNodeModules
+            isFromNodeModules: targetComponent.isFromNodeModules,
+            componentDomNode: componentDomNode
           };
         }
       } catch (e) {
@@ -248,6 +267,35 @@
       } catch (e) {
         return [];
       }
+    }
+    
+    function findDomNodeForFiber(fiber) {
+      // Try to find a DOM node by traversing down the fiber tree
+      let current = fiber;
+      
+      // First, try the current fiber's stateNode
+      if (current.stateNode && current.stateNode instanceof HTMLElement) {
+        return current.stateNode;
+      }
+      
+      // Traverse children to find a DOM node
+      current = fiber.child;
+      while (current) {
+        if (current.stateNode && current.stateNode instanceof HTMLElement) {
+          return current.stateNode;
+        }
+        // Go deeper if needed
+        if (current.child) {
+          current = current.child;
+        } else if (current.sibling) {
+          current = current.sibling;
+        } else {
+          // No more nodes to check
+          break;
+        }
+      }
+      
+      return null;
     }
     
     function sanitizeValue(value) {
@@ -424,6 +472,39 @@
   const CACHE_DURATION = 1000; // 1 second
 
   /**
+   * Get XPath for an element
+   */
+  function getXPath(element) {
+    if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+      return '';
+    }
+    
+    if (element.id) {
+      return `//*[@id="${element.id}"]`;
+    }
+    
+    const parts = [];
+    while (element && element.nodeType === Node.ELEMENT_NODE) {
+      let index = 0;
+      let sibling = element.previousSibling;
+      
+      while (sibling) {
+        if (sibling.nodeType === Node.ELEMENT_NODE && sibling.nodeName === element.nodeName) {
+          index++;
+        }
+        sibling = sibling.previousSibling;
+      }
+      
+      const tagName = element.nodeName.toLowerCase();
+      const pathIndex = index ? `[${index + 1}]` : '';
+      parts.unshift(`${tagName}${pathIndex}`);
+      element = element.parentNode;
+    }
+    
+    return parts.length ? `/${parts.join('/')}` : '';
+  }
+
+  /**
    * Get component info for a DOM node with caching
    */
   function getComponentInfo(node) {
@@ -550,11 +631,20 @@
 
       const componentInfo = element ? getComponentInfo(element) : null;
 
+      // Add React component DOM node XPath if available
+      let reactComponentXPath = null;
+      if (componentInfo && componentInfo.componentDomNode) {
+        reactComponentXPath = getXPath(componentInfo.componentDomNode);
+        // Remove the componentDomNode before sending (can't clone HTML elements)
+        delete componentInfo.componentDomNode;
+      }
+
       // Send response back
       window.postMessage(
         {
           type: 'COMPONENT_INFO_RESPONSE',
           componentInfo,
+          reactComponentXPath,
         },
         '*'
       );

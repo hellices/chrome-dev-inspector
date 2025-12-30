@@ -14,7 +14,10 @@ import {
   showOverlay, 
   hideOverlay, 
   getPanel, 
-  updatePanelContent 
+  updatePanelContent,
+  createReactOverlay,
+  showReactOverlay,
+  hideReactOverlay
 } from './overlay/overlayManager.js';
 import {
   setupEditableHookHandlers,
@@ -37,11 +40,13 @@ import {
 const state = {
   isEnabled: true,
   overlay: null,
+  reactOverlay: null,
   currentTarget: null,
   lastHoverTime: 0,
   isPinned: false,
   pinnedPosition: null,
-  expandedSections: { ...DEFAULT_EXPANDED_SECTIONS }
+  expandedSections: { ...DEFAULT_EXPANDED_SECTIONS },
+  currentUrl: window.location.href
 };
 
 // ============================================================================
@@ -57,14 +62,18 @@ const state = {
   // Overlay Management
   // ============================================================================
   
-  function updateOverlay(element, componentInfo, mouseX, mouseY) {
+  function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPath) {
     if (!state.overlay) {
       state.overlay = createOverlay();
+    }
+    if (!state.reactOverlay) {
+      state.reactOverlay = createReactOverlay();
     }
 
     if (!componentInfo) {
       if (!state.isPinned) {
         hideOverlay(state.overlay);
+        hideReactOverlay(state.reactOverlay);
       }
       return;
     }
@@ -74,10 +83,42 @@ const state = {
       componentInfo.css = getCSSInfo(element);
     }
 
+    // Show DOM overlay for the hovered element
     showOverlay(state.overlay, element);
+    
+    // Show React component overlay if available
+    if (reactComponentXPath) {
+      try {
+        const reactElement = document.evaluate(
+          reactComponentXPath,
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null
+        ).singleNodeValue;
+        
+        if (reactElement && reactElement !== element) {
+          showReactOverlay(state.reactOverlay, reactElement);
+        } else {
+          hideReactOverlay(state.reactOverlay);
+        }
+      } catch (e) {
+        console.error('[HoverComp] Error showing React overlay:', e);
+        hideReactOverlay(state.reactOverlay);
+      }
+    } else {
+      hideReactOverlay(state.reactOverlay);
+    }
     
     const panel = getPanel(state.overlay);
     if (!panel) return;
+    
+    // Store reactComponentXPath in panel for scroll updates
+    if (reactComponentXPath) {
+      panel.dataset.reactComponentXPath = reactComponentXPath;
+    } else {
+      delete panel.dataset.reactComponentXPath;
+    }
 
     // Position panel
     if (state.isPinned && state.pinnedPosition) {
@@ -204,7 +245,122 @@ const state = {
     if (state.isPinned) return;
     if (!event.relatedTarget || event.relatedTarget === document.documentElement) {
       hideOverlay(state.overlay);
+      hideReactOverlay(state.reactOverlay);
     }
+  }
+
+  function handleScroll() {
+    // Check if current target still exists in DOM
+    if (state.currentTarget && !document.body.contains(state.currentTarget)) {
+      resetOverlayState();
+      return;
+    }
+    
+    // Update overlay positions on scroll
+    if (state.currentTarget && state.overlay?.style.display !== 'none') {
+      const element = state.currentTarget;
+      showOverlay(state.overlay, element);
+      
+      // Also update React overlay if it's visible
+      if (state.reactOverlay?.style.display !== 'none') {
+        const panel = getPanel(state.overlay);
+        const reactXPath = panel?.dataset?.reactComponentXPath;
+        if (reactXPath) {
+          try {
+            const reactElement = document.evaluate(
+              reactXPath,
+              document,
+              null,
+              XPathResult.FIRST_ORDERED_NODE_TYPE,
+              null
+            ).singleNodeValue;
+            if (reactElement) {
+              showReactOverlay(state.reactOverlay, reactElement);
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
+      }
+    }
+  }
+
+  function resetOverlayState() {
+    console.log('[HoverComp] Resetting overlay state - isPinned was:', state.isPinned);
+    state.isPinned = false;
+    state.pinnedPosition = null;
+    state.currentTarget = null;
+    hideOverlay(state.overlay);
+    hideReactOverlay(state.reactOverlay);
+    console.log('[HoverComp] Reset complete - isPinned now:', state.isPinned);
+  }
+
+  function handleUrlChange() {
+    const newUrl = window.location.href;
+    if (newUrl !== state.currentUrl) {
+      console.log('[HoverComp] URL changed from', state.currentUrl, 'to', newUrl);
+      console.log('[HoverComp] Pinned state:', state.isPinned);
+      state.currentUrl = newUrl;
+      if (state.isPinned) {
+        console.log('[HoverComp] Unpinning and resetting overlay');
+        resetOverlayState();
+      } else {
+        console.log('[HoverComp] Hiding overlay (not pinned)');
+        // For non-pinned state, just hide the overlay
+        hideOverlay(state.overlay);
+        hideReactOverlay(state.reactOverlay);
+        state.currentTarget = null;
+      }
+    }
+  }
+
+  function monitorUrlChanges() {
+    // Monitor pushState and replaceState
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+    
+    history.pushState = function(...args) {
+      const result = originalPushState.apply(this, args);
+      setTimeout(() => handleUrlChange(), 0);
+      return result;
+    };
+    
+    history.replaceState = function(...args) {
+      const result = originalReplaceState.apply(this, args);
+      setTimeout(() => handleUrlChange(), 0);
+      return result;
+    };
+    
+    // Monitor popstate (back/forward buttons)
+    window.addEventListener('popstate', () => {
+      setTimeout(() => handleUrlChange(), 0);
+    });
+    
+    // Monitor hash changes
+    window.addEventListener('hashchange', () => {
+      setTimeout(() => handleUrlChange(), 0);
+    });
+    
+    // Periodic check for URL changes (fallback for edge cases)
+    setInterval(() => {
+      handleUrlChange();
+    }, 500);
+    
+    // Monitor DOM mutations that might indicate navigation
+    const observer = new MutationObserver(() => {
+      handleUrlChange();
+    });
+    
+    // Observe title changes (common during navigation)
+    const titleElement = document.querySelector('title');
+    if (titleElement) {
+      observer.observe(titleElement, { childList: true, characterData: true, subtree: true });
+    }
+  }
+
+  function handleBeforeUnload() {
+    // Reset pinned state on page navigation
+    resetOverlayState();
   }
 
   function handleKeyDown(event) {
@@ -219,6 +375,7 @@ const state = {
     state.isEnabled = !state.isEnabled;
     if (!state.isEnabled) {
       hideOverlay(state.overlay);
+      hideReactOverlay(state.reactOverlay);
       state.isPinned = false;
       state.pinnedPosition = null;
     }
@@ -240,12 +397,16 @@ const state = {
   
   function init() {
     injectInPageScript();
+    monitorUrlChanges();
 
     document.addEventListener('mousemove', handleMouseMove, true);
     document.addEventListener('click', handleClick, true);
     document.addEventListener('mouseout', handleMouseOut);
     document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('scroll', handleScroll, true);
     window.addEventListener('message', messageHandler);
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
   console.log('[HoverComp Dev Inspector] Content script loaded');
 }

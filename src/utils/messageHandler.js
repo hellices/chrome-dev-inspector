@@ -37,12 +37,12 @@ export function createContentMessageHandler(updateOverlayCallback, getCurrentTar
 /**
  * Handle component info response
  */
-function handleComponentInfoResponse({ componentInfo }, updateOverlayCallback, getCurrentTarget) {
+function handleComponentInfoResponse({ componentInfo, reactComponentXPath }, updateOverlayCallback, getCurrentTarget) {
   const currentTarget = getCurrentTarget();
   if (currentTarget) {
     const mouseX = currentTarget._mouseX || null;
     const mouseY = currentTarget._mouseY || null;
-    updateOverlayCallback(currentTarget, componentInfo, mouseX, mouseY);
+    updateOverlayCallback(currentTarget, componentInfo, mouseX, mouseY, reactComponentXPath);
   }
 }
 
