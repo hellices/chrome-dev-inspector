@@ -6,4 +6,3 @@ dist/
 *.zip
 .idea/
 .vscode/
-icons/*.png
