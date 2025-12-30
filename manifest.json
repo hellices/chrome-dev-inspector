@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "HoverComp Dev Inspector",
+  "version": "1.0.0",
+  "description": "Hover-based component inspector for React, Vue, Angular, and Web Components in dev mode",
+  "permissions": [],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*", "http://*.local/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://localhost/*", "http://127.0.0.1/*", "http://*.local/*"],
+      "js": ["src/content.js"],
+      "css": ["styles/overlay.css"],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/inpage.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

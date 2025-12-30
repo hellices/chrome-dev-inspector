@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HoverComp Dev Inspector - Demo</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      .header {
+        background: #007bff;
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .section {
+        margin: 20px 0;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+      }
+      .component-box {
+        display: inline-block;
+        padding: 10px 20px;
+        margin: 10px;
+        background: #f0f0f0;
+        border: 2px solid #333;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .component-box:hover {
+        background: #e0e0e0;
+      }
+      .instructions {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        margin: 20px 0;
+      }
+      code {
+        background: #f4f4f4;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: 'Courier New', monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>HoverComp Dev Inspector - Demo Page</h1>
+      <p>Test the extension by hovering over elements on this page</p>
+    </div>
+
+    <div class="instructions">
+      <h3>📋 Instructions</h3>
+      <ol>
+        <li>Load the extension in Chrome (<code>chrome://extensions/</code>)</li>
+        <li>Open this page from a local server (e.g., <code>http://localhost:8000</code>)</li>
+        <li>Hover over any element to see component information</li>
+        <li>Press <code>Alt+Shift+C</code> to toggle the inspector on/off</li>
+      </ol>
+    </div>
+
+    <div class="section">
+      <h2>Web Components Example</h2>
+      <p>Custom elements will be detected automatically:</p>
+      <custom-button>Click Me</custom-button>
+      <my-component>My Component</my-component>
+      <app-header>Header</app-header>
+    </div>
+
+    <div class="section">
+      <h2>Regular HTML Elements</h2>
+      <p>
+        These elements won't show component info (they're just regular HTML), but you can hover to
+        test:
+      </p>
+      <div class="component-box">Box 1</div>
+      <div class="component-box">Box 2</div>
+      <div class="component-box">Box 3</div>
+    </div>
+
+    <div class="section">
+      <h2>Testing with React/Vue/Angular</h2>
+      <p>To test with real frameworks:</p>
+      <ul>
+        <li>
+          <strong>React:</strong> Create a React dev build and include React DevTools hook
+        </li>
+        <li><strong>Vue:</strong> Run a Vue app in development mode</li>
+        <li><strong>Angular:</strong> Run an Angular app with <code>ng serve</code></li>
+      </ul>
+      <p>
+        This demo page simulates web components but doesn't have actual React/Vue/Angular
+        components.
+      </p>
+    </div>
+
+    <div class="section">
+      <h2>Extension Status</h2>
+      <p id="status">Checking extension status...</p>
+    </div>
+
+    <script>
+      // Define some custom elements for testing
+      class CustomButton extends HTMLElement {
+        constructor() {
+          super();
+          this.innerHTML = this.textContent || 'Custom Button';
+          this.style.cssText =
+            'display: inline-block; padding: 8px 16px; background: #007bff; color: white; border-radius: 4px; cursor: pointer; margin: 5px;';
+        }
+      }
+
+      class MyComponent extends HTMLElement {
+        constructor() {
+          super();
+          this.innerHTML = this.textContent || 'My Component';
+          this.style.cssText =
+            'display: inline-block; padding: 8px 16px; background: #28a745; color: white; border-radius: 4px; margin: 5px;';
+        }
+      }
+
+      class AppHeader extends HTMLElement {
+        constructor() {
+          super();
+          this.innerHTML = this.textContent || 'App Header';
+          this.style.cssText =
+            'display: block; padding: 12px 20px; background: #17a2b8; color: white; border-radius: 4px; margin: 5px;';
+        }
+      }
+
+      // Register custom elements
+      if (!customElements.get('custom-button')) {
+        customElements.define('custom-button', CustomButton);
+      }
+      if (!customElements.get('my-component')) {
+        customElements.define('my-component', MyComponent);
+      }
+      if (!customElements.get('app-header')) {
+        customElements.define('app-header', AppHeader);
+      }
+
+      // Check if extension is loaded
+      setTimeout(() => {
+        const statusEl = document.getElementById('status');
+        // Look for extension overlay in DOM
+        const hasOverlay = document.getElementById('hovercomp-overlay');
+        if (hasOverlay || window.__hovercomp_inspector__) {
+          statusEl.textContent = '✅ Extension is loaded and active!';
+          statusEl.style.color = 'green';
+        } else {
+          statusEl.textContent =
+            '⚠️ Extension not detected. Make sure it\'s loaded and you\'re accessing this page via localhost.';
+          statusEl.style.color = 'orange';
+        }
+      }, 1000);
+    </script>
+  </body>
+</html>
