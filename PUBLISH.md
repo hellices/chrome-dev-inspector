@@ -101,8 +101,8 @@ GitHub 저장소의 Settings → Secrets and variables → Actions에서 다음 
 2. 태그로 배포:
    ```bash
    git add .
-   git commit -m "Release v1.0.1"
-   git tag v1.0.1
+   git commit -m "Release v0.1.0"
+   git tag v0.1.0
    git push origin main --tags
    ```
 
