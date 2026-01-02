@@ -56,7 +56,7 @@
           if (typeof componentType === 'function') {
             const name = componentType.displayName || componentType.name || 'Component';
 
-            // 프로덕션 빌드 대응: 더 관대한 필터링
+            // Production build support: use more permissive filtering
             const isValidName = name && 
               name.length > 0 &&
               name !== 'Anonymous' &&
