@@ -7,6 +7,9 @@
   'use strict';
 
   // Constants
+  // Note: This constant is also defined in src/config/constants.js for consistency across
+  // the codebase. However, since inpage.js runs in the page context and cannot import ES
+  // modules, we need to define it here as well. Keep both values in sync.
   const MAX_COMPONENT_HIERARCHY_DEPTH = 20;
 
   // Import detection utilities (inline for injection)
@@ -14,6 +17,11 @@
     function detectReact(node) {
       try {
         // 1. Check for DevTools Hook (optional - continue even if not present)
+        // NOTE: This detection works in both development and production builds.
+        // In production, React DevTools hook may not be available, but we can still
+        // detect React components via the fiber properties (__reactFiber or __reactInternalInstance).
+        // This allows the extension to work on production sites, though with potentially
+        // less accurate user component detection due to missing source metadata.
         const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
 
         // 2. Find Fiber - __reactFiber or __reactInternalInstance

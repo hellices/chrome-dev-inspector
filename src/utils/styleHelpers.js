@@ -1,5 +1,12 @@
 /**
  * Style utilities for UI components
+ * 
+ * NOTE: This module is currently included in the manifest for future use.
+ * It provides reusable style constants and utilities for creating styled UI elements.
+ * While not actively used in the current codebase, it's maintained here for:
+ * - Potential future UI enhancements
+ * - Consistency in styling across components
+ * - Easier maintenance when adding new UI features
  */
 
 /**

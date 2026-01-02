@@ -165,10 +165,17 @@ export function showComponentOverlay(componentOverlay, element) {
 
 // Deprecated: Use showComponentOverlay instead
 export function showVueOverlay(vueOverlay, element) {
-  console.warn(
-    'showVueOverlay is deprecated and will be removed in a future version. ' +
-    'Use showComponentOverlay instead.'
-  );
+  // Only log warning in development (build script removes console statements in production)
+  if (
+    typeof process !== 'undefined' &&
+    process.env &&
+    process.env.NODE_ENV !== 'production'
+  ) {
+    console.warn(
+      'showVueOverlay is deprecated and will be removed in a future version. ' +
+      'Use showComponentOverlay instead.'
+    );
+  }
   showComponentOverlay(vueOverlay, element);
 }
 

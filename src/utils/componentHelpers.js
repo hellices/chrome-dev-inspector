@@ -56,17 +56,22 @@ export function sanitizeValue(value, options = {}) {
   if (typeof value === 'object') {
     // Handle Vue reactive objects if isVue is true
     if (options.isVue) {
-      if (value.__v_isRef) {
-        return sanitizeValue(value.value, options);
-      }
-      if (value.__v_isReactive || value.__v_isReadonly) {
-        try {
-          // Extract raw value from Vue 3 reactive proxy
-          const raw = value.__v_raw || value;
-          return JSON.parse(JSON.stringify(raw));
-        } catch (e) {
-          return '[Reactive: ' + (value.constructor?.name || 'Object') + ']';
+      try {
+        if (value.__v_isRef) {
+          return sanitizeValue(value.value, options);
         }
+        if (value.__v_isReactive || value.__v_isReadonly) {
+          try {
+            // Extract raw value from Vue 3 reactive proxy
+            const raw = value.__v_raw || value;
+            return JSON.parse(JSON.stringify(raw));
+          } catch (e) {
+            return '[Reactive: ' + (value.constructor?.name || 'Object') + ']';
+          }
+        }
+      } catch (e) {
+        // If Vue internals change or access fails, fall through to generic serialization below
+        // This protects against breaking changes in future Vue versions
       }
     }
     try {
