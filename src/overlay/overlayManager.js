@@ -36,25 +36,58 @@ export function createOverlay() {
 }
 
 /**
- * Create React component overlay element (lighter, no panel)
- * @returns {HTMLElement} React overlay element
+ * Create framework-specific overlay element (lighter, no panel)
+ * @param {string} type - Type of overlay ('react' or 'vue')
+ * @returns {HTMLElement} Framework overlay element
  */
-export function createReactOverlay() {
+function createFrameworkOverlay(type) {
+  const config = {
+    react: {
+      id: 'hovercomp-react-overlay',
+      className: CSS_CLASSES.OVERLAY + '-react',
+      background: 'rgba(156, 39, 176, 0.05)',
+      border: '2px dashed rgba(156, 39, 176, 0.4)',
+    },
+    vue: {
+      id: 'hovercomp-vue-overlay',
+      className: CSS_CLASSES.OVERLAY + '-vue',
+      background: 'rgba(66, 184, 131, 0.05)',
+      border: '2px dashed rgba(66, 184, 131, 0.4)',
+    },
+  };
+
+  const { id, className, background, border } = config[type];
   const div = document.createElement('div');
-  div.id = 'hovercomp-react-overlay';
-  div.className = CSS_CLASSES.OVERLAY + '-react';
+  div.id = id;
+  div.className = className;
   div.style.cssText = `
     position: absolute;
     z-index: ${OVERLAY_Z_INDEX - 1};
     pointer-events: none;
     display: none;
-    background: rgba(156, 39, 176, 0.05);
-    border: 2px dashed rgba(156, 39, 176, 0.4);
+    background: ${background};
+    border: ${border};
     box-sizing: border-box;
   `;
   document.body.appendChild(div);
 
   return div;
+}
+
+/**
+ * Create React component overlay element (lighter, no panel)
+ * @returns {HTMLElement} React overlay element
+ */
+export function createReactOverlay() {
+  return createFrameworkOverlay('react');
+}
+
+/**
+ * Create Vue component overlay element (lighter, no panel)
+ * @returns {HTMLElement} Vue overlay element
+ */
+export function createVueOverlay() {
+  return createFrameworkOverlay('vue');
 }
 
 /**
@@ -92,11 +125,11 @@ function createPanel() {
 }
 
 /**
- * Show overlay for element
+ * Show overlay for element (generic implementation)
  * @param {HTMLElement} overlay - Overlay element
  * @param {HTMLElement} element - Target element
  */
-export function showOverlay(overlay, element) {
+function showOverlayGeneric(overlay, element) {
   if (!overlay || !element) return;
 
   const rect = element.getBoundingClientRect();
@@ -108,39 +141,54 @@ export function showOverlay(overlay, element) {
 }
 
 /**
- * Show React component overlay for element
- * @param {HTMLElement} reactOverlay - React overlay element
- * @param {HTMLElement} element - Target element
- */
-export function showReactOverlay(reactOverlay, element) {
-  if (!reactOverlay || !element) return;
-
-  const rect = element.getBoundingClientRect();
-  reactOverlay.style.display = 'block';
-  reactOverlay.style.top = `${rect.top + window.scrollY}px`;
-  reactOverlay.style.left = `${rect.left + window.scrollX}px`;
-  reactOverlay.style.width = `${rect.width}px`;
-  reactOverlay.style.height = `${rect.height}px`;
-}
-
-/**
- * Hide overlay
+ * Hide overlay (generic implementation)
  * @param {HTMLElement} overlay - Overlay element
  */
-export function hideOverlay(overlay) {
+function hideOverlayGeneric(overlay) {
   if (overlay) {
     overlay.style.display = 'none';
   }
 }
 
-/**
- * Hide React component overlay
- * @param {HTMLElement} reactOverlay - React overlay element
- */
-export function hideReactOverlay(reactOverlay) {
-  if (reactOverlay) {
-    reactOverlay.style.display = 'none';
+// Public API - All functions use the generic implementation
+export function showOverlay(overlay, element) {
+  showOverlayGeneric(overlay, element);
+}
+
+export function showReactOverlay(reactOverlay, element) {
+  showOverlayGeneric(reactOverlay, element);
+}
+
+export function showComponentOverlay(componentOverlay, element) {
+  showOverlayGeneric(componentOverlay, element);
+}
+
+// Deprecated: Use showComponentOverlay instead
+export function showVueOverlay(vueOverlay, element) {
+  // Only log warning in development (build script removes console statements in production)
+  if (
+    typeof process !== 'undefined' &&
+    process.env &&
+    process.env.NODE_ENV !== 'production'
+  ) {
+    console.warn(
+      'showVueOverlay is deprecated and will be removed in a future version. ' +
+      'Use showComponentOverlay instead.'
+    );
   }
+  showComponentOverlay(vueOverlay, element);
+}
+
+export function hideOverlay(overlay) {
+  hideOverlayGeneric(overlay);
+}
+
+export function hideReactOverlay(reactOverlay) {
+  hideOverlayGeneric(reactOverlay);
+}
+
+export function hideVueOverlay(vueOverlay) {
+  hideOverlayGeneric(vueOverlay);
 }
 
 /**

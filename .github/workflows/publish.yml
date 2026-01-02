@@ -26,10 +26,30 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Build extension
+        run: npm run build
+
+      - name: Validate build output
+        run: |
+          # Ensure dist directory exists and contains required files
+          if [ ! -d "dist" ]; then
+            echo "Error: dist directory not found after build"
+            exit 1
+          fi
+          
+          # Check for critical files
+          required_files=("src/inpage.js" "src/content.js" "manifest.json")
+          for file in "${required_files[@]}"; do
+            if [ ! -f "dist/$file" ]; then
+              echo "Error: Required file dist/$file not found"
+              exit 1
+            fi
+          done
+          
+          echo "Build validation successful - all required files present"
+
       - name: Create extension package
         run: |
-          mkdir -p dist
-          cp -r src styles icons manifest.json dist/
           cd dist
           zip -r ../extension.zip .
           cd ..

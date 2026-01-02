@@ -108,3 +108,6 @@ export const USER_CODE_PATHS = [
 
 // Score thresholds
 export const USER_COMPONENT_SCORE_THRESHOLD = 8;
+
+// Component hierarchy traversal
+export const MAX_COMPONENT_HIERARCHY_DEPTH = 20;

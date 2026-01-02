@@ -6,16 +6,30 @@
 (function () {
   'use strict';
 
+  // Constants
+  // Note: This constant is also defined in src/config/constants.js for consistency across
+  // the codebase. However, since inpage.js runs in the page context and cannot import ES
+  // modules, we need to define it here as well. Keep both values in sync.
+  const MAX_COMPONENT_HIERARCHY_DEPTH = 20;
+
   // Import detection utilities (inline for injection)
   const detectComponent = (function () {
     function detectReact(node) {
       try {
+        // 1. Check for DevTools Hook (optional - continue even if not present)
+        // NOTE: This detection works in both development and production builds.
+        // In production, React DevTools hook may not be available, but we can still
+        // detect React components via the fiber properties (__reactFiber or __reactInternalInstance).
+        // This allows the extension to work on production sites, though with potentially
+        // less accurate user component detection due to missing source metadata.
         const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-        if (!hook || !hook.renderers) {
-          return null;
-        }
 
-        const fiberKey = Object.keys(node).find((key) => key.startsWith('__reactFiber'));
+        // 2. Find Fiber - __reactFiber or __reactInternalInstance
+        const fiberKey = Object.keys(node).find((key) => 
+          key.startsWith('__reactFiber') || 
+          key.startsWith('__reactInternalInstance')
+        );
+        
         if (!fiberKey) {
           return null;
         }
@@ -40,18 +54,18 @@
 
           // Skip built-in types
           if (typeof componentType === 'function') {
-            const name = componentType.displayName || componentType.name;
+            const name = componentType.displayName || componentType.name || 'Component';
 
-            // Filter out primitives and built-in React types
-            if (
-              name &&
+            // Production build support: use more permissive filtering
+            const isValidName = name && 
+              name.length > 0 &&
               name !== 'Anonymous' &&
               name !== 'String' &&
               name !== 'Number' &&
               name !== 'Boolean' &&
-              !name.startsWith('_') &&
-              name.length > 0
-            ) {
+              !name.startsWith('_');
+
+            if (isValidName) {
               // Better detection: Check file path from source location
               const debugSource = fiber._debugSource || componentType.__source;
               const debugOwner = fiber._debugOwner;
@@ -144,6 +158,11 @@
               // Calculate score (higher = more likely user component)
               let score = 0;
 
+              // Production environment: give a default score when no debug/source information is available
+              if (!fileName && !debugSource) {
+                score += 5; // Production builds are treated as valid components by default
+              }
+
               // Strong negative indicators
               if (isKnownFramework) score -= 10;
               if (hasFrameworkPattern) score -= 5;
@@ -160,8 +179,20 @@
               if (componentType.$$typeof || componentType._payload) score += 2;
               if (source.includes('function') || source.includes('=>')) score += 1;
 
-              // Must have positive score to be user component
-              const isUserComponent = score >= 8 && !isKnownFramework && !hasFrameworkPattern;
+              // Production: add score if the component name appears meaningful
+              if (name.length > 2 && /[A-Z]/.test(name[0])) {
+                score += 3;
+              }
+
+              // NOTE: Production-mode heuristic
+              // - In production builds we intentionally use a lower threshold (score >= 5)
+              //   compared to development to improve detection when source metadata is limited.
+              // - This can increase false positives, especially for non-user or framework
+              //   components that look like user code.
+              // - Callers SHOULD treat `isUserComponent` as a best-effort signal only and, if
+              //   they require strong guarantees, combine it with additional validation
+              //   (e.g. file path checks, allowlists) at a higher layer.
+              const isUserComponent = score >= 5 && !isKnownFramework && !hasFrameworkPattern;
 
               // Extract detailed information
               const props = fiber.memoizedProps || {};
@@ -411,20 +442,115 @@
 
     function detectVue3(node) {
       try {
-        const vueInstance = node.__vueParentComponent || node.__vnode;
-        if (vueInstance) {
-          const component = vueInstance.type || vueInstance.component?.type;
-          if (component) {
-            const name = component.name || component.__name || component.displayName;
-            return {
-              framework: 'Vue 3',
-              name: name || 'Anonymous',
-              detail: component.__file || '',
-            };
+        let current = node;
+        let componentHierarchy = [];
+        let foundVueInstance = false;
+
+        // Try to find Vue instance in current or parent nodes
+        while (current && componentHierarchy.length < MAX_COMPONENT_HIERARCHY_DEPTH) {
+          // Check multiple Vue 3 properties
+          const vueInstance = current.__vueParentComponent || 
+                             current.__vnode || 
+                             current._vnode;
+          
+          if (vueInstance) {
+            foundVueInstance = true;
+            let instance = vueInstance.component || vueInstance;
+            
+            // Walk up the component tree
+            let depth = 0;
+            while (instance && depth < MAX_COMPONENT_HIERARCHY_DEPTH) {
+              const component = instance.type;
+              if (component) {
+                const name = component.name || component.__name || component.displayName;
+
+                // Filter out framework components and fragments
+                if (name && 
+                    !name.startsWith('_') &&
+                    name !== 'Fragment' &&
+                    name !== 'Teleport' &&
+                    name !== 'KeepAlive' &&
+                    name !== 'Suspense' &&
+                    name !== 'Transition' &&
+                    name !== 'TransitionGroup') {
+                  
+                  const fileName = component.__file || '';
+                  
+                  // Check if it's a user component
+                  const isFromNodeModules = fileName.includes('node_modules') || 
+                                           fileName.includes('/vue/') ||
+                                           fileName.includes('\\vue\\');
+                  const isFromUserCode = fileName && (
+                    fileName.includes('/src/') ||
+                    fileName.includes('\\src\\') ||
+                    fileName.includes('/components/') ||
+                    fileName.includes('\\components\\') ||
+                    fileName.includes('/app/') ||
+                    fileName.includes('\\app\\')
+                  );
+
+                  // Known Vue framework components
+                  const knownFrameworkComponents = [
+                    'RouterView', 'RouterLink', 'NuxtLink', 'NuxtPage', 'NuxtLayout',
+                    'ClientOnly', 'ServerOnly', 'Teleport', 'KeepAlive', 'Suspense'
+                  ];
+                  const isKnownFramework = knownFrameworkComponents.includes(name);
+
+                  // Calculate score
+                  let score = 0;
+                  if (isFromUserCode && !isFromNodeModules) score += 10;
+                  if (!isKnownFramework) score += 5;
+                  if (component.setup) score += 3;
+                  if (instance.props && Object.keys(instance.props).length > 0) score += 2;
+
+                  const isUserComponent = score >= 8;
+
+                  componentHierarchy.push({
+                    name,
+                    isUserComponent,
+                    score,
+                    fileName,
+                  });
+                }
+              }
+
+              instance = instance.parent;
+              depth++;
+            }
+
+            // If we found components, return the best one
+            if (componentHierarchy.length > 0) {
+              const userComponents = componentHierarchy.filter(c => c.isUserComponent);
+              const targetComponent = userComponents[userComponents.length - 1] || componentHierarchy[0];
+
+              return {
+                framework: 'Vue 3',
+                name: targetComponent.name,
+                detail: targetComponent.fileName || '',
+                isUserComponent: targetComponent.isUserComponent,
+                hierarchy: componentHierarchy.map(c => c.name),
+              };
+            }
+          }
+
+          // Try parent element
+          current = current.parentElement;
+          if (!current || current === document.body || current === document.documentElement) {
+            break;
           }
         }
+
+        // If we found a Vue instance but no valid components, return a default
+        if (foundVueInstance) {
+          return {
+            framework: 'Vue 3',
+            name: 'Vue Component',
+            detail: '',
+            isUserComponent: false,
+          };
+        }
       } catch (e) {
-        // Silent fail
+        console.error('[HoverComp] Vue 3 detection error:', e);
       }
       return null;
     }
@@ -510,7 +636,8 @@
   const CACHE_DURATION = 1000; // 1 second
 
   /**
-   * Get XPath for an element
+   * Get XPath for an element (inline implementation for injected script)
+   * Note: Cannot import from utils as this runs in page context
    */
   function getXPath(element) {
     if (!element || element.nodeType !== Node.ELEMENT_NODE) {

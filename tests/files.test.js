@@ -36,6 +36,9 @@ describe('Required Files', () => {
       'formatters.js',
       'htmlHelpers.js',
       'frameworkDetect.js',
+      'reactHelpers.js',
+      'vueHelpers.js',
+      'componentHelpers.js',
     ];
 
     utilFiles.forEach((file) => {
