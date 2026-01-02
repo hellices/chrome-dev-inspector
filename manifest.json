@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HoverComp Dev Inspector",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Hover-based component inspector for React and Web Components",
   "permissions": [],
   "content_scripts": [
