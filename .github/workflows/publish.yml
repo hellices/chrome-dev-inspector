@@ -26,10 +26,11 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Build extension
+        run: npm run build
+
       - name: Create extension package
         run: |
-          mkdir -p dist
-          cp -r src styles icons manifest.json dist/
           cd dist
           zip -r ../extension.zip .
           cd ..
