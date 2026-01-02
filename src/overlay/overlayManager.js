@@ -58,6 +58,28 @@ export function createReactOverlay() {
 }
 
 /**
+ * Create Vue component overlay element (lighter, no panel)
+ * @returns {HTMLElement} Vue overlay element
+ */
+export function createVueOverlay() {
+  const div = document.createElement('div');
+  div.id = 'hovercomp-vue-overlay';
+  div.className = CSS_CLASSES.OVERLAY + '-vue';
+  div.style.cssText = `
+    position: absolute;
+    z-index: ${OVERLAY_Z_INDEX - 1};
+    pointer-events: none;
+    display: none;
+    background: rgba(66, 184, 131, 0.05);
+    border: 2px dashed rgba(66, 184, 131, 0.4);
+    box-sizing: border-box;
+  `;
+  document.body.appendChild(div);
+
+  return div;
+}
+
+/**
  * Create panel element
  * @returns {HTMLElement} Panel element
  */
@@ -124,6 +146,22 @@ export function showReactOverlay(reactOverlay, element) {
 }
 
 /**
+ * Show Vue component overlay for element
+ * @param {HTMLElement} vueOverlay - Vue overlay element
+ * @param {HTMLElement} element - Target element
+ */
+export function showVueOverlay(vueOverlay, element) {
+  if (!vueOverlay || !element) return;
+
+  const rect = element.getBoundingClientRect();
+  vueOverlay.style.display = 'block';
+  vueOverlay.style.top = `${rect.top + window.scrollY}px`;
+  vueOverlay.style.left = `${rect.left + window.scrollX}px`;
+  vueOverlay.style.width = `${rect.width}px`;
+  vueOverlay.style.height = `${rect.height}px`;
+}
+
+/**
  * Hide overlay
  * @param {HTMLElement} overlay - Overlay element
  */
@@ -140,6 +178,16 @@ export function hideOverlay(overlay) {
 export function hideReactOverlay(reactOverlay) {
   if (reactOverlay) {
     reactOverlay.style.display = 'none';
+  }
+}
+
+/**
+ * Hide Vue component overlay
+ * @param {HTMLElement} vueOverlay - Vue overlay element
+ */
+export function hideVueOverlay(vueOverlay) {
+  if (vueOverlay) {
+    vueOverlay.style.display = 'none';
   }
 }
 

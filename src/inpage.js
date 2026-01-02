@@ -10,12 +10,16 @@
   const detectComponent = (function () {
     function detectReact(node) {
       try {
+        // 1. DevTools Hook 확인 (선택적 - 없어도 계속 진행)
         const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-        if (!hook || !hook.renderers) {
-          return null;
-        }
+        const hasDevTools = hook && hook.renderers && hook.renderers.size > 0;
 
-        const fiberKey = Object.keys(node).find((key) => key.startsWith('__reactFiber'));
+        // 2. Fiber 찾기 - __reactFiber 또는 __reactInternalInstance
+        const fiberKey = Object.keys(node).find((key) => 
+          key.startsWith('__reactFiber') || 
+          key.startsWith('__reactInternalInstance')
+        );
+        
         if (!fiberKey) {
           return null;
         }
@@ -40,18 +44,18 @@
 
           // Skip built-in types
           if (typeof componentType === 'function') {
-            const name = componentType.displayName || componentType.name;
+            const name = componentType.displayName || componentType.name || 'Component';
 
-            // Filter out primitives and built-in React types
-            if (
-              name &&
+            // 프로덕션 빌드 대응: 더 관대한 필터링
+            const isValidName = name && 
+              name.length > 0 &&
               name !== 'Anonymous' &&
               name !== 'String' &&
               name !== 'Number' &&
               name !== 'Boolean' &&
-              !name.startsWith('_') &&
-              name.length > 0
-            ) {
+              !name.startsWith('_');
+
+            if (isValidName) {
               // Better detection: Check file path from source location
               const debugSource = fiber._debugSource || componentType.__source;
               const debugOwner = fiber._debugOwner;
@@ -144,6 +148,11 @@
               // Calculate score (higher = more likely user component)
               let score = 0;
 
+              // 프로덕션 환경: 디버그 정보 없으면 기본 점수 부여
+              if (!fileName && !debugSource) {
+                score += 5; // 프로덕션 빌드는 기본적으로 유효한 컴포넌트로 간주
+              }
+
               // Strong negative indicators
               if (isKnownFramework) score -= 10;
               if (hasFrameworkPattern) score -= 5;
@@ -160,8 +169,13 @@
               if (componentType.$$typeof || componentType._payload) score += 2;
               if (source.includes('function') || source.includes('=>')) score += 1;
 
-              // Must have positive score to be user component
-              const isUserComponent = score >= 8 && !isKnownFramework && !hasFrameworkPattern;
+              // 프로덕션: 이름이 의미있으면 점수 추가
+              if (name.length > 2 && /[A-Z]/.test(name[0])) {
+                score += 3;
+              }
+
+              // Must have positive score to be user component (프로덕션에서는 더 관대하게)
+              const isUserComponent = score >= 5 && !isKnownFramework && !hasFrameworkPattern;
 
               // Extract detailed information
               const props = fiber.memoizedProps || {};
@@ -411,20 +425,116 @@
 
     function detectVue3(node) {
       try {
-        const vueInstance = node.__vueParentComponent || node.__vnode;
-        if (vueInstance) {
-          const component = vueInstance.type || vueInstance.component?.type;
-          if (component) {
-            const name = component.name || component.__name || component.displayName;
-            return {
-              framework: 'Vue 3',
-              name: name || 'Anonymous',
-              detail: component.__file || '',
-            };
+        let current = node;
+        let componentHierarchy = [];
+        let foundVueInstance = false;
+
+        // Try to find Vue instance in current or parent nodes
+        while (current && componentHierarchy.length < 20) {
+          // Check multiple Vue 3 properties
+          const vueInstance = current.__vueParentComponent || 
+                             current.__vnode || 
+                             current._vnode;
+          
+          if (vueInstance) {
+            foundVueInstance = true;
+            let instance = vueInstance.component || vueInstance;
+            
+            // Walk up the component tree
+            let depth = 0;
+            while (instance && depth < 20) {
+              const component = instance.type;
+              if (component) {
+                const name = component.name || component.__name || component.displayName;
+
+                // Filter out framework components and fragments
+                if (name && 
+                    name !== 'App' && 
+                    !name.startsWith('_') &&
+                    name !== 'Fragment' &&
+                    name !== 'Teleport' &&
+                    name !== 'KeepAlive' &&
+                    name !== 'Suspense' &&
+                    name !== 'Transition' &&
+                    name !== 'TransitionGroup') {
+                  
+                  const fileName = component.__file || '';
+                  
+                  // Check if it's a user component
+                  const isFromNodeModules = fileName.includes('node_modules') || 
+                                           fileName.includes('/vue/') ||
+                                           fileName.includes('\\vue\\');
+                  const isFromUserCode = fileName && (
+                    fileName.includes('/src/') ||
+                    fileName.includes('\\src\\') ||
+                    fileName.includes('/components/') ||
+                    fileName.includes('\\components\\') ||
+                    fileName.includes('/app/') ||
+                    fileName.includes('\\app\\')
+                  );
+
+                  // Known Vue framework components
+                  const knownFrameworkComponents = [
+                    'RouterView', 'RouterLink', 'NuxtLink', 'NuxtPage', 'NuxtLayout',
+                    'ClientOnly', 'ServerOnly', 'Teleport', 'KeepAlive', 'Suspense'
+                  ];
+                  const isKnownFramework = knownFrameworkComponents.includes(name);
+
+                  // Calculate score
+                  let score = 0;
+                  if (isFromUserCode && !isFromNodeModules) score += 10;
+                  if (!isKnownFramework) score += 5;
+                  if (component.setup) score += 3;
+                  if (instance.props && Object.keys(instance.props).length > 0) score += 2;
+
+                  const isUserComponent = score >= 8;
+
+                  componentHierarchy.push({
+                    name,
+                    isUserComponent,
+                    score,
+                    fileName,
+                  });
+                }
+              }
+
+              instance = instance.parent;
+              depth++;
+            }
+
+            // If we found components, return the best one
+            if (componentHierarchy.length > 0) {
+              const userComponents = componentHierarchy.filter(c => c.isUserComponent);
+              const targetComponent = userComponents[userComponents.length - 1] || componentHierarchy[0];
+
+              return {
+                framework: 'Vue 3',
+                name: targetComponent.name,
+                detail: targetComponent.fileName || '',
+                isUserComponent: targetComponent.isUserComponent,
+                hierarchy: componentHierarchy.map(c => c.name),
+              };
+            }
+          }
+
+          // Try parent element
+          current = current.parentElement;
+          if (!current || current === document.body || current === document.documentElement) {
+            break;
           }
         }
+
+        // If we found a Vue instance but no valid components, return a default
+        if (foundVueInstance) {
+          return {
+            framework: 'Vue 3',
+            name: 'Vue Component',
+            detail: '',
+            isUserComponent: false,
+          };
+        }
       } catch (e) {
-        // Silent fail
+        console.error('[HoverComp] Vue 3 detection error:', e);
       }
       return null;
     }

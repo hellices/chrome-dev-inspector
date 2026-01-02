@@ -15,6 +15,20 @@ import {
   sanitizeProps,
 } from './reactHelpers.js';
 
+import {
+  isFromUserCode as isFromUserCodeVue,
+  isFromNodeModules as isFromNodeModulesVue,
+  isKnownFrameworkComponent as isKnownFrameworkComponentVue,
+  hasFrameworkPattern as hasFrameworkPatternVue,
+  calculateComponentScore as calculateComponentScoreVue,
+  isUserComponent as isUserComponentVue,
+  extractVue2Data,
+  extractVue3Data,
+  sanitizeProps as sanitizePropsVue,
+  extractVue2Computed,
+  extractVue3Computed,
+} from './vueHelpers.js';
+
 /**
  * Detects React component from a DOM node
  * @param {HTMLElement} node - DOM node to inspect
@@ -221,18 +235,80 @@ export function detectReact(node) {
  */
 export function detectVue2(node) {
   try {
-    const vue = node.__vue__;
-    if (vue) {
-      const name =
-        vue.$options.name ||
-        vue.$options._componentTag ||
-        vue.$options.__name ||
-        vue.constructor?.name;
-      return {
-        framework: 'Vue 2',
-        name: name || 'Anonymous',
-        detail: vue.$options._componentTag || '',
-      };
+    let current = node;
+    let componentHierarchy = [];
+
+    // Try to find Vue instance in current or parent nodes
+    while (current) {
+      const vue = current.__vue__;
+      if (vue) {
+        let instance = vue;
+        
+        // Walk up the component tree
+        while (instance) {
+          const name =
+            instance.$options.name ||
+            instance.$options._componentTag ||
+            instance.$options.__name ||
+            instance.constructor?.name;
+
+          if (name && name !== 'Vue' && name !== 'VueComponent') {
+            const fileName = instance.$options.__file || instance.$options._componentTag || '';
+            
+            const isFromNodeModules = isFromNodeModulesVue(fileName);
+            const isFromUserCode = isFromUserCodeVue(fileName);
+            const isKnownFramework = isKnownFrameworkComponentVue(name, fileName);
+            const hasFrameworkPattern = hasFrameworkPatternVue(name);
+
+            // Calculate score
+            const score = calculateComponentScoreVue({
+              fileName,
+              parentFileName: instance.$parent?.$options?.__file || '',
+              setupLength: instance.$options.setup?.toString().length || 0,
+              isKnownFramework,
+              hasFrameworkPattern,
+              hasProps: Object.keys(instance.$props || {}).length > 0,
+              hasEmits: (instance.$options.emits || []).length > 0,
+            });
+
+            const isUserComp = isUserComponentVue(score, isKnownFramework, hasFrameworkPattern);
+
+            componentHierarchy.push({
+              name,
+              isUserComponent: isUserComp,
+              score,
+              fileName,
+              data: extractVue2Data(instance),
+              computed: extractVue2Computed(instance),
+              props: sanitizePropsVue(instance.$props || {}),
+            });
+          }
+
+          instance = instance.$parent;
+        }
+
+        // Return the outermost user component
+        const userComponents = componentHierarchy.filter((c) => c.isUserComponent);
+        const targetComponent = userComponents[userComponents.length - 1] || componentHierarchy[0];
+
+        if (targetComponent) {
+          return {
+            framework: 'Vue 2',
+            name: targetComponent.name,
+            detail: targetComponent.fileName || '',
+            isUserComponent: targetComponent.isUserComponent,
+            hierarchy: componentHierarchy
+              .filter((c) => c.isUserComponent || c.name.match(/^(App|Layout|Page|Main)$/))
+              .map((c) => c.name),
+            allUserComponents: userComponents.map((c) => c.name),
+            fileName: targetComponent.fileName,
+            data: targetComponent.data,
+            computed: targetComponent.computed,
+            props: targetComponent.props,
+          };
+        }
+      }
+      current = current.parentElement;
     }
   } catch (e) {
     // Silent fail
@@ -247,18 +323,79 @@ export function detectVue2(node) {
  */
 export function detectVue3(node) {
   try {
-    // Check for Vue 3 instance
-    const vueInstance = node.__vueParentComponent || node.__vnode;
-    if (vueInstance) {
-      const component = vueInstance.type || vueInstance.component?.type;
-      if (component) {
-        const name = component.name || component.__name || component.displayName;
-        return {
-          framework: 'Vue 3',
-          name: name || 'Anonymous',
-          detail: component.__file || '',
-        };
+    let current = node;
+    let componentHierarchy = [];
+
+    // Try to find Vue instance in current or parent nodes
+    while (current) {
+      const vueInstance = current.__vueParentComponent || current.__vnode;
+      if (vueInstance) {
+        let instance = vueInstance.component || vueInstance;
+        
+        // Walk up the component tree
+        while (instance) {
+          const component = instance.type;
+          if (component) {
+            const name = component.name || component.__name || component.displayName;
+
+            if (name && name !== 'App' && !name.startsWith('_')) {
+              const fileName = component.__file || '';
+              
+              const isFromNodeModules = isFromNodeModulesVue(fileName);
+              const isFromUserCode = isFromUserCodeVue(fileName);
+              const isKnownFramework = isKnownFrameworkComponentVue(name, fileName);
+              const hasFrameworkPattern = hasFrameworkPatternVue(name);
+
+              // Calculate score
+              const score = calculateComponentScoreVue({
+                fileName,
+                parentFileName: instance.parent?.type?.__file || '',
+                setupLength: component.setup?.toString().length || 0,
+                isKnownFramework,
+                hasFrameworkPattern,
+                hasProps: Object.keys(instance.props || {}).length > 0,
+                hasEmits: (component.emits || []).length > 0,
+              });
+
+              const isUserComp = isUserComponentVue(score, isKnownFramework, hasFrameworkPattern);
+
+              componentHierarchy.push({
+                name,
+                isUserComponent: isUserComp,
+                score,
+                fileName,
+                data: extractVue3Data(instance),
+                computed: extractVue3Computed(instance),
+                props: sanitizePropsVue(instance.props || {}),
+              });
+            }
+          }
+
+          instance = instance.parent;
+        }
+
+        // Return the outermost user component
+        const userComponents = componentHierarchy.filter((c) => c.isUserComponent);
+        const targetComponent = userComponents[userComponents.length - 1] || componentHierarchy[0];
+
+        if (targetComponent) {
+          return {
+            framework: 'Vue 3',
+            name: targetComponent.name,
+            detail: targetComponent.fileName || '',
+            isUserComponent: targetComponent.isUserComponent,
+            hierarchy: componentHierarchy
+              .filter((c) => c.isUserComponent || c.name.match(/^(App|Layout|Page|Main)$/))
+              .map((c) => c.name),
+            allUserComponents: userComponents.map((c) => c.name),
+            fileName: targetComponent.fileName,
+            data: targetComponent.data,
+            computed: targetComponent.computed,
+            props: targetComponent.props,
+          };
+        }
       }
+      current = current.parentElement;
     }
   } catch (e) {
     // Silent fail

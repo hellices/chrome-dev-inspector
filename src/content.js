@@ -33,6 +33,9 @@ import {
   createReactOverlay,
   showReactOverlay,
   hideReactOverlay,
+  createVueOverlay,
+  showVueOverlay,
+  hideVueOverlay,
 } from './overlay/overlayManager.js';
 import {
   setupEditableHookHandlers,
@@ -57,6 +60,7 @@ const state = {
   isEnabled: true,
   overlay: null,
   reactOverlay: null,
+  vueOverlay: null,
   currentTarget: null,
   lastHoverTime: 0,
   isPinned: false,
@@ -65,6 +69,7 @@ const state = {
   currentUrl: window.location.href,
   inspectionMode: 'auto', // 'auto', 'react', 'html', 'vue', etc.
   detectedFrameworks: [], // List of detected frameworks on the page
+  detectedFrameworksFromInpage: new Set(), // Frameworks detected by inpage.js (from actual components)
 };
 
 // ============================================================================
@@ -75,17 +80,32 @@ function detectFrameworksOnPage() {
   const frameworks = [];
 
   // Check for React
-  if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__?.renderers) {
+  let hasReact = window.__REACT_DEVTOOLS_GLOBAL_HOOK__?.renderers;
+  
+  // Also check if inpage.js has detected React components
+  if (!hasReact && state.detectedFrameworksFromInpage.has('react')) {
+    hasReact = true;
+  }
+  
+  if (hasReact) {
     frameworks.push('react');
   }
 
   // Check for Vue 2
-  if (window.Vue || document.querySelector('[data-v-]')) {
+  let hasVue2 = window.Vue;
+  if (!hasVue2 && state.detectedFrameworksFromInpage.has('vue2')) {
+    hasVue2 = true;
+  }
+  if (hasVue2) {
     frameworks.push('vue2');
   }
 
   // Check for Vue 3
-  if (window.__VUE__ || document.querySelector('[data-v-app]')) {
+  let hasVue3 = window.__VUE__ || window.__VUE_DEVTOOLS_GLOBAL_HOOK__;
+  if (!hasVue3 && state.detectedFrameworksFromInpage.has('vue3')) {
+    hasVue3 = true;
+  }
+  if (hasVue3 && !hasVue2) {
     frameworks.push('vue3');
   }
 
@@ -99,20 +119,12 @@ function detectFrameworksOnPage() {
 
 function updateDetectedFrameworks() {
   state.detectedFrameworks = detectFrameworksOnPage();
-  console.log('[HoverComp] Detected frameworks:', state.detectedFrameworks);
-
-  // Update mode selector UI if it exists
-  updateModeSelector();
 }
 
 function setInspectionMode(mode) {
   const validModes = ['auto', 'html', ...state.detectedFrameworks];
   if (validModes.includes(mode)) {
     state.inspectionMode = mode;
-    console.log('[HoverComp] Inspection mode set to:', mode);
-
-    // Update UI
-    updateModeSelector();
 
     // Refresh current overlay if present
     if (state.currentTarget) {
@@ -207,24 +219,28 @@ function createModeSelector() {
   return selector;
 }
 
-function updateModeSelector() {
-  const selector = document.getElementById('hovercomp-mode-selector');
-  if (selector) {
-    // Recreate to update options
-    createModeSelector();
-  }
-}
+
 
 function toggleModeSelector() {
   let selector = document.getElementById('hovercomp-mode-selector');
-  if (!selector) {
+  
+  // If selector exists and is hidden, show it (recreate with fresh detection)
+  if (selector && (selector.style.display === 'none' || !selector.style.display)) {
+    // Re-detect frameworks when opening
+    state.detectedFrameworks = detectFrameworksOnPage();
+    selector.remove();
     selector = createModeSelector();
-  }
-
-  if (selector.style.display === 'none' || !selector.style.display) {
     selector.style.display = 'block';
-  } else {
+  } 
+  // If selector exists and is visible, hide it
+  else if (selector) {
     selector.style.display = 'none';
+  } 
+  // If selector doesn't exist, create it
+  else {
+    state.detectedFrameworks = detectFrameworksOnPage();
+    selector = createModeSelector();
+    selector.style.display = 'block';
   }
 }
 
@@ -350,11 +366,26 @@ function injectInPageScript() {
 // ============================================================================
 
 function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPath) {
+  // Track detected frameworks from component info
+  if (componentInfo?.framework) {
+    const framework = componentInfo.framework.toLowerCase();
+    if (framework.includes('react')) {
+      state.detectedFrameworksFromInpage.add('react');
+    } else if (framework.includes('vue 3')) {
+      state.detectedFrameworksFromInpage.add('vue3');
+    } else if (framework.includes('vue 2') || framework.includes('vue')) {
+      state.detectedFrameworksFromInpage.add('vue2');
+    }
+  }
+
   if (!state.overlay) {
     state.overlay = createOverlay();
   }
   if (!state.reactOverlay) {
     state.reactOverlay = createReactOverlay();
+  }
+  if (!state.vueOverlay) {
+    state.vueOverlay = createVueOverlay();
   }
 
   // If HTML mode is forced, use HTML element info
@@ -363,7 +394,20 @@ function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPa
     if (htmlInfo) {
       showOverlay(state.overlay, element);
       hideReactOverlay(state.reactOverlay);
+      hideVueOverlay(state.vueOverlay);
+// Track detected frameworks from component info
+  if (componentInfo?.framework) {
+    const framework = componentInfo.framework.toLowerCase();
+    if (framework.includes('react')) {
+      state.detectedFrameworksFromInpage.add('react');
+    } else if (framework.includes('vue 3')) {
+      state.detectedFrameworksFromInpage.add('vue3');
+    } else if (framework.includes('vue 2') || framework.includes('vue')) {
+      state.detectedFrameworksFromInpage.add('vue2');
+    }
+  }
 
+  
       const panel = getPanel(state.overlay);
       if (panel) {
         // Position panel
@@ -393,6 +437,7 @@ function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPa
     if (!state.isPinned) {
       hideOverlay(state.overlay);
       hideReactOverlay(state.reactOverlay);
+      hideVueOverlay(state.vueOverlay);
     }
     return;
   }
@@ -405,8 +450,11 @@ function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPa
   // Show DOM overlay for the hovered element
   showOverlay(state.overlay, element);
 
-  // Show React component overlay if available
-  if (reactComponentXPath) {
+  // Show framework-specific overlay if available
+  const framework = componentInfo.framework?.toLowerCase();
+  
+  if (framework === 'react' && reactComponentXPath) {
+    // Show React overlay
     try {
       const reactElement = document.evaluate(
         reactComponentXPath,
@@ -425,8 +473,14 @@ function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPa
       console.error('[HoverComp] Error showing React overlay:', e);
       hideReactOverlay(state.reactOverlay);
     }
+    hideVueOverlay(state.vueOverlay);
+  } else if (framework === 'vue 2' || framework === 'vue 3') {
+    // Show Vue overlay on the same element (Vue components map 1:1 with DOM)
+    showVueOverlay(state.vueOverlay, element);
+    hideReactOverlay(state.reactOverlay);
   } else {
     hideReactOverlay(state.reactOverlay);
+    hideVueOverlay(state.vueOverlay);
   }
 
   const panel = getPanel(state.overlay);
@@ -582,6 +636,7 @@ function handleMouseOut(event) {
   if (!event.relatedTarget || event.relatedTarget === document.documentElement) {
     hideOverlay(state.overlay);
     hideReactOverlay(state.reactOverlay);
+    hideVueOverlay(state.vueOverlay);
   }
 }
 
@@ -618,6 +673,11 @@ function handleScroll() {
         }
       }
     }
+
+    // Update Vue overlay if it's visible
+    if (state.vueOverlay?.style.display !== 'none') {
+      showVueOverlay(state.vueOverlay, element);
+    }
   }
 }
 
@@ -628,6 +688,7 @@ function resetOverlayState() {
   state.currentTarget = null;
   hideOverlay(state.overlay);
   hideReactOverlay(state.reactOverlay);
+  hideVueOverlay(state.vueOverlay);
   console.log('[HoverComp] Reset complete - isPinned now:', state.isPinned);
 }
 
@@ -718,6 +779,7 @@ function toggleEnabled() {
   if (!state.isEnabled) {
     hideOverlay(state.overlay);
     hideReactOverlay(state.reactOverlay);
+    hideVueOverlay(state.vueOverlay);
     state.isPinned = false;
     state.pinnedPosition = null;
   }
@@ -741,10 +803,30 @@ function init() {
   // Show welcome tip for first-time users
   showWelcomeTipIfFirstTime();
 
-  // Detect frameworks on page
+  // Detect frameworks on page - multiple attempts for SPAs
   setTimeout(() => {
     updateDetectedFrameworks();
-  }, 2000);
+  }, 1000);
+  
+  setTimeout(() => {
+    updateDetectedFrameworks();
+  }, 3000);
+  
+  // Re-detect on DOM changes (for SPAs)
+  const observer = new MutationObserver(() => {
+    updateDetectedFrameworks();
+  });
+  
+  // Start observing after initial load
+  setTimeout(() => {
+    observer.observe(document.body, { 
+      childList: true, 
+      subtree: true 
+    });
+    
+    // Stop observing after 10 seconds to avoid performance issues
+    setTimeout(() => observer.disconnect(), 10000);
+  }, 500);
 
   document.addEventListener('mousemove', handleMouseMove, true);
   document.addEventListener('click', handleClick, true);

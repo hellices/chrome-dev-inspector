@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "HoverComp Dev Inspector",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Hover-based component inspector for React and Web Components",
   "permissions": [],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
@@ -24,6 +27,7 @@
         "src/utils/messageHandler.js",
         "src/utils/cssHelper.js",
         "src/utils/reactHelpers.js",
+        "src/utils/vueHelpers.js",
         "src/utils/htmlHelpers.js",
         "src/utils/formatters.js",
         "src/utils/frameworkDetect.js",
