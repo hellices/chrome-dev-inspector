@@ -5,12 +5,10 @@
 
 import { injectScript } from './utils/domHelpers.js';
 import { createContentMessageHandler, requestComponentInfo } from './utils/messageHandler.js';
-import { detectFrameworksOnPage } from './utils/frameworkManager.js';
 import { hideOverlay, hideReactOverlay, hideVueOverlay } from './overlay/overlayManager.js';
 import { state, resetOverlayState, toggleEnabled } from './content/state.js';
 import {
   updateDetectedFrameworksState,
-  trackDetectedFramework,
 } from './content/modeSelector.js';
 import { monitorUrlChanges } from './content/urlMonitor.js';
 import { showWelcomeTipIfFirstTime } from './content/welcomeTip.js';
@@ -76,8 +74,8 @@ function init() {
       subtree: true 
     });
     
-    // Stop observing after 10 seconds to avoid performance issues
-    setTimeout(() => observer.disconnect(), 10000);
+    // Stop observing after 60 seconds to avoid performance issues while still supporting SPAs
+    setTimeout(() => observer.disconnect(), 60000);
   }, 500);
 
   // Setup event listeners with proper bindings

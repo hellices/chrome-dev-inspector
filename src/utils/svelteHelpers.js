@@ -5,9 +5,14 @@
 import {
   KNOWN_FRAMEWORK_COMPONENTS,
   FRAMEWORK_PATTERNS,
-  USER_CODE_PATHS,
-  USER_COMPONENT_SCORE_THRESHOLD,
 } from '../config/constants.js';
+import {
+  isFromUserCode as sharedIsFromUserCode,
+  isUserComponent as sharedIsUserComponent,
+  parseValue as sharedParseValue,
+  sanitizeValue as sharedSanitizeValue,
+  sanitizeProps as sharedSanitizeProps,
+} from './componentHelpers.js';
 
 /**
  * Check if a component is from user code
@@ -15,8 +20,7 @@ import {
  * @returns {boolean} True if from user code
  */
 export function isFromUserCode(fileName) {
-  if (!fileName) return false;
-  return USER_CODE_PATHS.some((path) => fileName.includes(path));
+  return sharedIsFromUserCode(fileName);
 }
 
 /**
@@ -134,7 +138,7 @@ export function calculateComponentScore({
  * @returns {boolean} True if user component
  */
 export function isUserComponent(score, isKnownFramework, hasFrameworkPattern) {
-  return score >= USER_COMPONENT_SCORE_THRESHOLD && !isKnownFramework && !hasFrameworkPattern;
+  return sharedIsUserComponent(score, isKnownFramework, hasFrameworkPattern);
 }
 
 /**
@@ -203,21 +207,7 @@ export function extractSvelteProps(component) {
  * @returns {*} Sanitized value
  */
 export function sanitizeValue(value) {
-  if (value === null) return null;
-  if (value === undefined) return 'undefined';
-  if (typeof value === 'function') return '[Function]';
-  if (typeof value === 'symbol') return '[Symbol]';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'object') {
-    try {
-      return JSON.parse(JSON.stringify(value));
-    } catch (e) {
-      return '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
-    }
-  }
-  return String(value);
+  return sharedSanitizeValue(value);
 }
 
 /**
@@ -226,26 +216,7 @@ export function sanitizeValue(value) {
  * @returns {Object} Sanitized props
  */
 export function sanitizeProps(props) {
-  const sanitized = {};
-  for (const key in props) {
-    // Skip Svelte internal keys
-    if (key.startsWith('$$') || key.startsWith('$')) continue;
-
-    const value = props[key];
-
-    if (typeof value === 'function') {
-      sanitized[key] = '[Function: ' + (value.name || 'anonymous') + ']';
-    } else if (typeof value === 'symbol') {
-      sanitized[key] = '[Symbol: ' + value.toString() + ']';
-    } else if (typeof value === 'undefined') {
-      sanitized[key] = 'undefined';
-    } else if (value === null) {
-      sanitized[key] = null;
-    } else {
-      sanitized[key] = sanitizeValue(value);
-    }
-  }
-  return sanitized;
+  return sharedSanitizeProps(props, { framework: 'svelte' });
 }
 
 /**
@@ -254,9 +225,5 @@ export function sanitizeProps(props) {
  * @returns {*} Parsed value
  */
 export function parseValue(value) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
+  return sharedParseValue(value);
 }

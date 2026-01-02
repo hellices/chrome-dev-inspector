@@ -267,8 +267,6 @@ export function detectVue2(node) {
           if (name && name !== 'Vue' && name !== 'VueComponent') {
             const fileName = instance.$options.__file || instance.$options._componentTag || '';
             
-            const isFromNodeModules = isFromNodeModulesVue(fileName);
-            const isFromUserCode = isFromUserCodeVue(fileName);
             const isKnownFramework = isKnownFrameworkComponentVue(name, fileName);
             const hasFrameworkPattern = hasFrameworkPatternVue(name);
 
@@ -350,11 +348,9 @@ export function detectVue3(node) {
           if (component) {
             const name = component.name || component.__name || component.displayName;
 
-            if (name && name !== 'App' && !name.startsWith('_')) {
+            if (name && !name.startsWith('_')) {
               const fileName = component.__file || '';
               
-              const isFromNodeModules = isFromNodeModulesVue(fileName);
-              const isFromUserCode = isFromUserCodeVue(fileName);
               const isKnownFramework = isKnownFrameworkComponentVue(name, fileName);
               const hasFrameworkPattern = hasFrameworkPatternVue(name);
 
@@ -524,8 +520,6 @@ export function detectSvelte(node) {
             'SvelteComponent';
 
           if (name && name !== 'SvelteComponent' && name !== 'ProxyComponent') {
-            const isFromNodeModules = isFromNodeModulesSvelte(fileName);
-            const isFromUserCode = isFromUserCodeSvelte(fileName);
             const isKnownFramework = isKnownFrameworkComponentSvelte(name, fileName);
             const hasFrameworkPattern = hasFrameworkPatternSvelte(name);
 
@@ -581,8 +575,18 @@ export function detectSvelte(node) {
       current = current.parentElement;
     }
   } catch (e) {
-    // Silent fail
+    // Silent fail in UI, but record for diagnostics
     console.error('[HoverComp] Error detecting Svelte:', e);
+    if (typeof window !== 'undefined') {
+      if (!window.__HOVERCOMP_ERROR_LOG__) {
+        window.__HOVERCOMP_ERROR_LOG__ = [];
+      }
+      window.__HOVERCOMP_ERROR_LOG__.push({
+        source: 'detectSvelte',
+        error: e,
+        timestamp: Date.now(),
+      });
+    }
   }
   return null;
 }

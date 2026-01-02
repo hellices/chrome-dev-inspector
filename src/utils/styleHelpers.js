@@ -136,10 +136,10 @@ export function createEditableStyles(color) {
     focus: {
       background: `${color}80`, // 50% opacity
       outline: `2px solid ${color}`,
-      boxShadow: `0 0 8px ${color}66`,
+      boxShadow: `0 0 8px ${color}66`, // ~40% opacity
     },
     blur: {
-      background: 'rgba(0,0,0,0.3)',
+      background: 'rgba(0, 0, 0, 0.3)',
       outline: 'none',
       boxShadow: 'none',
     },

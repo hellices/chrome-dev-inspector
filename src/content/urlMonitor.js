@@ -62,7 +62,7 @@ export function monitorUrlChanges(state, resetOverlayStateFn, hideOverlayFn, hid
   // Periodic check for URL changes (fallback for edge cases)
   setInterval(() => {
     handleChange();
-  }, 500);
+  }, 1500);
 
   // Monitor DOM mutations that might indicate navigation
   const observer = new MutationObserver(() => {

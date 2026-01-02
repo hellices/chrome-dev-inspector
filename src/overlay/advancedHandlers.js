@@ -147,7 +147,18 @@ function createStyleInput(allCssProperties, element, btn, refreshCallback) {
  * Autocomplete dropdown configuration
  */
 const AUTOCOMPLETE_CONFIG = {
-  DROPDOWN_STYLE: 'position: fixed; width: 250px; max-height: 200px; overflow-y: auto; background: rgba(25,25,25,0.98); border: 1px solid #1976d2; border-radius: 3px; z-index: 2147483647; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);',
+  DROPDOWN_STYLE: `
+    position: fixed;
+    width: 250px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(25, 25, 25, 0.98);
+    border: 1px solid #1976d2;
+    border-radius: 3px;
+    z-index: 2147483647;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  `.replace(/\s+/g, ' ').trim(),
   DROPDOWN_CLASS: 'css-autocomplete-dropdown',
   STYLE_ID: 'css-autocomplete-scrollbar-style',
   SCROLLBAR_STYLES: `
@@ -155,15 +166,15 @@ const AUTOCOMPLETE_CONFIG = {
       width: 8px;
     }
     .css-autocomplete-dropdown::-webkit-scrollbar-track {
-      background: rgba(0,0,0,0.3);
+      background: rgba(0, 0, 0, 0.3);
       border-radius: 4px;
     }
     .css-autocomplete-dropdown::-webkit-scrollbar-thumb {
-      background: rgba(25,118,210,0.5);
+      background: rgba(25, 118, 210, 0.5);
       border-radius: 4px;
     }
     .css-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-      background: rgba(25,118,210,0.7);
+      background: rgba(25, 118, 210, 0.7);
     }
   `,
 };
