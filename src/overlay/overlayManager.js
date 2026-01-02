@@ -165,6 +165,10 @@ export function showComponentOverlay(componentOverlay, element) {
 
 // Deprecated: Use showComponentOverlay instead
 export function showVueOverlay(vueOverlay, element) {
+  console.warn(
+    'showVueOverlay is deprecated and will be removed in a future version. ' +
+    'Use showComponentOverlay instead.'
+  );
   showComponentOverlay(vueOverlay, element);
 }
 
