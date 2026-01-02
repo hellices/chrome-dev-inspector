@@ -35,7 +35,7 @@ export function getFrameworkNote(detectedFrameworks) {
  * @param {Object} overlays - Object containing overlay elements
  */
 export function showFrameworkOverlay(framework, reactComponentXPath, element, overlays) {
-  const { reactOverlay, vueOverlay, showReactOverlay, showVueOverlay, hideReactOverlay, hideVueOverlay } = overlays;
+  const { reactOverlay, vueOverlay, showReactOverlay, showComponentOverlay, hideReactOverlay, hideVueOverlay } = overlays;
 
   if (framework === 'react' && reactComponentXPath) {
     try {
@@ -58,10 +58,10 @@ export function showFrameworkOverlay(framework, reactComponentXPath, element, ov
     }
     hideVueOverlay(vueOverlay);
   } else if (framework === 'vue 2' || framework === 'vue 3') {
-    showVueOverlay(vueOverlay, element);
+    showComponentOverlay(vueOverlay, element);
     hideReactOverlay(reactOverlay);
   } else if (framework === 'svelte') {
-    showVueOverlay(vueOverlay, element);
+    showComponentOverlay(vueOverlay, element);
     hideReactOverlay(reactOverlay);
   } else {
     hideReactOverlay(reactOverlay);

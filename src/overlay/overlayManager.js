@@ -159,8 +159,13 @@ export function showReactOverlay(reactOverlay, element) {
   showOverlayGeneric(reactOverlay, element);
 }
 
+export function showComponentOverlay(componentOverlay, element) {
+  showOverlayGeneric(componentOverlay, element);
+}
+
+// Deprecated: Use showComponentOverlay instead
 export function showVueOverlay(vueOverlay, element) {
-  showOverlayGeneric(vueOverlay, element);
+  showComponentOverlay(vueOverlay, element);
 }
 
 export function hideOverlay(overlay) {

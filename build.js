@@ -35,7 +35,7 @@ async function processJSFile(filePath, outputPath) {
       drop_debugger: true, // Remove debugger statements
       pure_funcs: ['console.log', 'console.debug', 'console.info'], // Remove specific console calls
     },
-    mangle: false, // Don't mangle names for debugging
+    mangle: false, // Keep names unmangled for debugging - consider enabling for production builds to reduce file size
     format: {
       comments: false, // Remove comments
     },

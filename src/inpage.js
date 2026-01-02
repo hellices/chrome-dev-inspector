@@ -6,15 +6,17 @@
 (function () {
   'use strict';
 
+  // Constants
+  const MAX_COMPONENT_HIERARCHY_DEPTH = 20;
+
   // Import detection utilities (inline for injection)
   const detectComponent = (function () {
     function detectReact(node) {
       try {
-        // 1. DevTools Hook 확인 (선택적 - 없어도 계속 진행)
+        // 1. Check for DevTools Hook (optional - continue even if not present)
         const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
-        const hasDevTools = hook && hook.renderers && hook.renderers.size > 0;
 
-        // 2. Fiber 찾기 - __reactFiber 또는 __reactInternalInstance
+        // 2. Find Fiber - __reactFiber or __reactInternalInstance
         const fiberKey = Object.keys(node).find((key) => 
           key.startsWith('__reactFiber') || 
           key.startsWith('__reactInternalInstance')
@@ -169,12 +171,19 @@
               if (componentType.$$typeof || componentType._payload) score += 2;
               if (source.includes('function') || source.includes('=>')) score += 1;
 
-              // 프로덕션: 이름이 의미있으면 점수 추가
+              // Production: add score if the component name appears meaningful
               if (name.length > 2 && /[A-Z]/.test(name[0])) {
                 score += 3;
               }
 
-              // Must have positive score to be user component (프로덕션에서는 더 관대하게)
+              // NOTE: Production-mode heuristic
+              // - In production builds we intentionally use a lower threshold (score >= 5)
+              //   compared to development to improve detection when source metadata is limited.
+              // - This can increase false positives, especially for non-user or framework
+              //   components that look like user code.
+              // - Callers SHOULD treat `isUserComponent` as a best-effort signal only and, if
+              //   they require strong guarantees, combine it with additional validation
+              //   (e.g. file path checks, allowlists) at a higher layer.
               const isUserComponent = score >= 5 && !isKnownFramework && !hasFrameworkPattern;
 
               // Extract detailed information
@@ -430,7 +439,7 @@
         let foundVueInstance = false;
 
         // Try to find Vue instance in current or parent nodes
-        while (current && componentHierarchy.length < 20) {
+        while (current && componentHierarchy.length < MAX_COMPONENT_HIERARCHY_DEPTH) {
           // Check multiple Vue 3 properties
           const vueInstance = current.__vueParentComponent || 
                              current.__vnode || 
@@ -442,14 +451,13 @@
             
             // Walk up the component tree
             let depth = 0;
-            while (instance && depth < 20) {
+            while (instance && depth < MAX_COMPONENT_HIERARCHY_DEPTH) {
               const component = instance.type;
               if (component) {
                 const name = component.name || component.__name || component.displayName;
 
                 // Filter out framework components and fragments
                 if (name && 
-                    name !== 'App' && 
                     !name.startsWith('_') &&
                     name !== 'Fragment' &&
                     name !== 'Teleport' &&

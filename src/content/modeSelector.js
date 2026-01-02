@@ -5,7 +5,6 @@
 import { OVERLAY_Z_INDEX } from '../config/constants.js';
 import {
   detectFrameworksOnPage,
-  trackDetectedFramework,
   validateInspectionMode,
 } from '../utils/frameworkManager.js';
 import { requestComponentInfo } from '../utils/messageHandler.js';
@@ -175,5 +174,3 @@ export function setupModeSelectorButtonHandler(panel, state) {
     });
   }
 }
-
-export { trackDetectedFramework };

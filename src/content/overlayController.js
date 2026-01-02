@@ -25,7 +25,7 @@ import {
   showReactOverlay,
   hideReactOverlay,
   createVueOverlay,
-  showVueOverlay,
+  showComponentOverlay,
   hideVueOverlay,
 } from '../overlay/overlayManager.js';
 import {
@@ -40,7 +40,7 @@ import {
   setupEditableAttributeHandlers,
 } from '../overlay/eventHandlers.js';
 import { setupAddClassHandlers, setupAddStyleHandlers } from '../overlay/advancedHandlers.js';
-import { trackDetectedFramework } from './modeSelector.js';
+import { trackDetectedFramework } from '../utils/frameworkManager.js';
 import { setupModeSelectorButtonHandler } from './modeSelector.js';
 import { invalidateCache } from '../utils/messageHandler.js';
 
@@ -198,7 +198,7 @@ export function updateOverlay(element, componentInfo, mouseX, mouseY, reactCompo
     reactOverlay: state.reactOverlay,
     vueOverlay: state.vueOverlay,
     showReactOverlay,
-    showVueOverlay,
+    showComponentOverlay,
     hideReactOverlay,
     hideVueOverlay,
   });
@@ -257,7 +257,7 @@ export function updateOverlayOnScroll(state) {
 
     // Update Vue overlay if it's visible
     if (state.vueOverlay?.style.display !== 'none') {
-      showVueOverlay(state.vueOverlay, element);
+      showComponentOverlay(state.vueOverlay, element);
     }
   }
 
