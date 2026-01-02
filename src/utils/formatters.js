@@ -56,7 +56,9 @@ export function formatComponentInfo(info, pinned = false) {
  */
 function formatHeader(info, pinned) {
   let html = `<div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">`;
-  html += `<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">`;
+  html += `<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px;">`;
+  html += `<div style="flex: 1;">`;
+  html += `<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">`;
   html += `<strong style="color: #61dafb; font-size: 14px;">${escapeHtml(info.name)}</strong>`;
 
   if (info.isUserComponent) {
@@ -68,9 +70,15 @@ function formatHeader(info, pinned) {
   if (pinned) {
     html += `<span style="background: #4caf50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 9px;">📍 PINNED</span>`;
   }
-
+  
   html += `</div>`;
-  html += `<div style="color: #888; font-size: 10px;">${escapeHtml(info.framework)}</div>`;
+  html += `<div style="color: #888; font-size: 10px; margin-top: 2px;">${escapeHtml(info.framework)}</div>`;
+  html += `</div>`;
+  
+  // Mode selector button
+  html += `<button id="hovercomp-mode-btn" style="background: rgba(97, 218, 251, 0.1); border: 1px solid rgba(97, 218, 251, 0.3); color: #61dafb; padding: 4px 8px; border-radius: 4px; font-size: 9px; cursor: pointer; transition: all 0.2s; font-family: inherit; flex-shrink: 0; height: fit-content;" title="Change inspection mode (Alt+Shift+M)">🔧 Mode</button>`;
+  
+  html += `</div>`;
 
   if (info.fileName) {
     const shortPath =
@@ -233,6 +241,6 @@ function formatCSSSection(css) {
  */
 function formatFooter(pinned) {
   return `<div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); color: #666; font-size: 9px; text-align: center;">
-    Alt+Shift+C to toggle • Alt+Click to ${pinned ? 'unpin' : 'pin'}
+    Alt+Shift+C to toggle • Alt+Click to ${pinned ? 'unpin' : 'pin'} • 🔧 Mode
   </div>`;
 }

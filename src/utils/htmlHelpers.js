@@ -132,14 +132,20 @@ export function formatHtmlElementInfo(info, pinned = false) {
 
   // Header
   html += `<div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">`;
-  html += `<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">`;
+  html += `<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">`;
+  html += `<div style="display: flex; align-items: center; gap: 8px;">`;
   html += `<strong style="color: #ff9800; font-size: 14px;">&lt;${escapeHtml(info.tagName)}&gt;</strong>`;
   html += `<span style="background: #2196f3; color: white; padding: 2px 6px; border-radius: 3px; font-size: 9px; font-weight: bold;">HTML</span>`;
 
   if (pinned) {
     html += `<span style="background: #4caf50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 9px;">📍 PINNED</span>`;
   }
-
+  
+  html += `</div>`;
+  
+  // Mode selector button
+  html += `<button id="hovercomp-mode-btn" style="background: rgba(97, 218, 251, 0.1); border: 1px solid rgba(97, 218, 251, 0.3); color: #61dafb; padding: 4px 8px; border-radius: 4px; font-size: 9px; cursor: pointer; transition: all 0.2s; font-family: inherit;" title="Change inspection mode (Alt+Shift+M)">🔧 Mode</button>`;
+  
   html += `</div>`;
   html += `<div style="color: #888; font-size: 10px;">Plain HTML Element</div>`;
 
@@ -205,7 +211,7 @@ export function formatHtmlElementInfo(info, pinned = false) {
 
   // Footer
   html += `<div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); color: #666; font-size: 9px; text-align: center;">`;
-  html += `Alt+Shift+C to toggle • Alt+Click to ${pinned ? 'unpin' : 'pin'}`;
+  html += `Alt+Shift+C to toggle • Alt+Click to ${pinned ? 'unpin' : 'pin'} • 🔧 Mode`;
   html += `</div>`;
 
   return html;
