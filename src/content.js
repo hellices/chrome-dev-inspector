@@ -109,6 +109,66 @@ function detectFrameworksOnPage() {
     frameworks.push('vue3');
   }
 
+  // Check for Svelte
+  let hasSvelte = false;
+  
+  // Method 1: Check for Svelte components in development mode
+  const checkSvelteInElements = () => {
+    const elements = document.querySelectorAll('*');
+    for (const el of elements) {
+      // Check for __svelte_ keys (dev mode)
+      const hasSvelteKey = Object.keys(el).some(
+        (key) => key.startsWith('__svelte_') || key === '__svelte'
+      );
+      if (hasSvelteKey) return true;
+      
+      // Check for $$ property (Svelte 4+ dev mode)
+      if (el.$$ && typeof el.$$ === 'object') return true;
+      
+      // Check for svelte data attributes or classes
+      if (el.hasAttribute && 
+          (el.hasAttribute('data-svelte-h') || 
+           (el.className && typeof el.className === 'string' && el.className.includes('svelte-')))) {
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  hasSvelte = checkSvelteInElements();
+  
+  // Method 2: Check for SvelteKit indicators (production mode)
+  if (!hasSvelte) {
+    // Check for SvelteKit specific patterns
+    const scripts = document.querySelectorAll('script[src]');
+    for (const script of scripts) {
+      const src = script.getAttribute('src') || '';
+      if (src.includes('/_app/') || 
+          src.includes('/immutable/') || 
+          src.includes('.svelte') ||
+          src.includes('sveltekit')) {
+        hasSvelte = true;
+        break;
+      }
+    }
+  }
+  
+  // Method 3: Check for Svelte hydration markers
+  if (!hasSvelte) {
+    const hasHydrationMarker = document.querySelector('[data-svelte-h]') || 
+                                document.querySelector('[class*="svelte-"]');
+    if (hasHydrationMarker) {
+      hasSvelte = true;
+    }
+  }
+  
+  if (!hasSvelte && state.detectedFrameworksFromInpage.has('svelte')) {
+    hasSvelte = true;
+  }
+  if (hasSvelte) {
+    frameworks.push('svelte');
+  }
+
   // Check for Angular
   if (window.ng || window.getAllAngularRootElements) {
     frameworks.push('angular');
@@ -185,6 +245,13 @@ function createModeSelector() {
     html += `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">`;
     html += `<input type="radio" name="inspection-mode" value="${vueMode}" ${state.inspectionMode === vueMode ? 'checked' : ''} style="accent-color: #42b883;">`;
     html += `<span style="color: #42b883;">💚 Vue Mode</span>`;
+    html += `</label>`;
+  }
+
+  if (state.detectedFrameworks.includes('svelte')) {
+    html += `<label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">`;
+    html += `<input type="radio" name="inspection-mode" value="svelte" ${state.inspectionMode === 'svelte' ? 'checked' : ''} style="accent-color: #ff3e00;">`;
+    html += `<span style="color: #ff3e00;">🔥 Svelte Mode</span>`;
     html += `</label>`;
   }
 
@@ -375,10 +442,10 @@ function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPa
       state.detectedFrameworksFromInpage.add('vue3');
     } else if (framework.includes('vue 2') || framework.includes('vue')) {
       state.detectedFrameworksFromInpage.add('vue2');
+    } else if (framework.includes('svelte')) {
+      state.detectedFrameworksFromInpage.add('svelte');
     }
-  }
-
-  if (!state.overlay) {
+  }if (!state.overlay) {
     state.overlay = createOverlay();
   }
   if (!state.reactOverlay) {
@@ -434,6 +501,58 @@ function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPa
   }
 
   if (!componentInfo) {
+    // If no framework component detected, fallback to HTML mode
+    if (element instanceof HTMLElement) {
+      const htmlInfo = getHtmlElementInfo(element);
+      if (htmlInfo) {
+        showOverlay(state.overlay, element);
+        hideReactOverlay(state.reactOverlay);
+        hideVueOverlay(state.vueOverlay);
+        
+        const panel = getPanel(state.overlay);
+        if (panel) {
+          // Position panel
+          if (state.isPinned && state.pinnedPosition) {
+            applyPanelPosition(panel, state.pinnedPosition, true);
+          } else if (mouseX && mouseY) {
+            const panelRect = panel.getBoundingClientRect();
+            const position = calculatePanelPosition(mouseX, mouseY, panelRect);
+            applyPanelPosition(panel, position, false);
+            setTimeout(() => adjustPanelPosition(panel), 50);
+          }
+
+          // Show appropriate note based on detected frameworks
+          let frameworkNote = '';
+          if (state.detectedFrameworks.includes('react')) {
+            frameworkNote = `<div style="background: rgba(97, 218, 251, 0.1); padding: 8px; margin-bottom: 12px; border-radius: 6px; border-left: 3px solid #61dafb;">
+                <div style="color: #61dafb; font-weight: bold; margin-bottom: 4px;">⚛️ React Detected on Page</div>
+                <div style="color: #ccc; font-size: 10px;">This element is not a React component. Showing HTML info.</div>
+              </div>`;
+          } else if (state.detectedFrameworks.includes('vue3') || state.detectedFrameworks.includes('vue2')) {
+            frameworkNote = `<div style="background: rgba(66, 184, 131, 0.1); padding: 8px; margin-bottom: 12px; border-radius: 6px; border-left: 3px solid #42b883;">
+                <div style="color: #42b883; font-weight: bold; margin-bottom: 4px;">💚 Vue Detected on Page</div>
+                <div style="color: #ccc; font-size: 10px;">This element is not a Vue component. Showing HTML info.</div>
+              </div>`;
+          } else if (state.detectedFrameworks.includes('svelte')) {
+            frameworkNote = `<div style="background: rgba(255, 62, 0, 0.1); padding: 8px; margin-bottom: 12px; border-radius: 6px; border-left: 3px solid #ff3e00;">
+                <div style="color: #ff3e00; font-weight: bold; margin-bottom: 4px;">🔥 Svelte Detected on Page</div>
+                <div style="color: #ccc; font-size: 10px;">Production build or plain HTML element. Showing HTML info.</div>
+              </div>`;
+          }
+          
+          const html = frameworkNote + formatHtmlElementInfo(htmlInfo, state.isPinned);
+          updatePanelContent(panel, html);
+
+          // Setup event handlers
+          setupAllEventHandlers(panel, element);
+          restoreExpandedSections(panel, state.expandedSections);
+          setTimeout(() => adjustPanelPosition(panel), 100);
+        }
+        return;
+      }
+    }
+    
+    // Only hide overlay if we couldn't get any info and not pinned
     if (!state.isPinned) {
       hideOverlay(state.overlay);
       hideReactOverlay(state.reactOverlay);
@@ -476,6 +595,10 @@ function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPa
     hideVueOverlay(state.vueOverlay);
   } else if (framework === 'vue 2' || framework === 'vue 3') {
     // Show Vue overlay on the same element (Vue components map 1:1 with DOM)
+    showVueOverlay(state.vueOverlay, element);
+    hideReactOverlay(state.reactOverlay);
+  } else if (framework === 'svelte') {
+    // Show Vue overlay for Svelte (similar behavior to Vue)
     showVueOverlay(state.vueOverlay, element);
     hideReactOverlay(state.reactOverlay);
   } else {

@@ -29,6 +29,18 @@ import {
   extractVue3Computed,
 } from './vueHelpers.js';
 
+import {
+  isFromUserCode as isFromUserCodeSvelte,
+  isFromNodeModules as isFromNodeModulesSvelte,
+  isKnownFrameworkComponent as isKnownFrameworkComponentSvelte,
+  hasFrameworkPattern as hasFrameworkPatternSvelte,
+  calculateComponentScore as calculateComponentScoreSvelte,
+  isUserComponent as isUserComponentSvelte,
+  extractSvelteState,
+  extractSvelteProps,
+  sanitizeProps as sanitizePropsSvelte,
+} from './svelteHelpers.js';
+
 /**
  * Detects React component from a DOM node
  * @param {HTMLElement} node - DOM node to inspect
@@ -438,6 +450,139 @@ export function detectAngular(node) {
     }
   } catch (e) {
     // Silent fail
+  }
+  return null;
+}
+
+/**
+ * Detects Svelte component from a DOM node
+ * @param {HTMLElement} node - DOM node to inspect
+ * @returns {Object|null} Component info or null
+ */
+export function detectSvelte(node) {
+  try {
+    let current = node;
+    let componentHierarchy = [];
+
+    // Try to find Svelte component in current or parent nodes
+    while (current) {
+      // Svelte stores component data in different ways:
+      // 1. __svelte_* properties (older versions)
+      // 2. Direct $$ property (Svelte 4+)
+      // 3. Data attributes with svelte- prefix
+      
+      let component = null;
+      
+      // Method 1: Check for __svelte_* keys
+      const svelteKeys = Object.keys(current).filter(
+        (key) => key.startsWith('__svelte_') || key === '__svelte'
+      );
+      
+      if (svelteKeys.length > 0) {
+        component = current[svelteKeys[0]];
+      }
+      
+      // Method 2: Check for direct $$ property (Svelte 4+)
+      if (!component && current.$$) {
+        component = current;
+      }
+      
+      // Method 3: Check data-svelte-h or other svelte attributes
+      if (!component && current.hasAttribute && 
+          (current.hasAttribute('data-svelte-h') || 
+           current.hasAttribute('class') && current.className.includes('svelte-'))) {
+        // This is a Svelte-rendered element, create a minimal component info
+        const classes = current.className.split(' ');
+        const svelteClass = classes.find(c => c.startsWith('svelte-'));
+        
+        if (svelteClass) {
+          return {
+            framework: 'Svelte',
+            name: current.tagName.toLowerCase(),
+            detail: 'Svelte-rendered element',
+            isUserComponent: false,
+            hierarchy: [current.tagName.toLowerCase()],
+            allUserComponents: [],
+            fileName: '',
+            props: {},
+            state: {},
+          };
+        }
+      }
+
+      if (component && component.$$) {
+        // Walk up the component tree
+        let instance = component;
+        
+        while (instance && instance.$$) {
+          const fileName = instance.$$.ctx?.__file || '';
+          
+          // Try to get component name from various sources
+          let name = 
+            instance.constructor?.name || 
+            fileName.split('/').pop()?.replace('.svelte', '') ||
+            'SvelteComponent';
+
+          if (name && name !== 'SvelteComponent' && name !== 'ProxyComponent') {
+            const isFromNodeModules = isFromNodeModulesSvelte(fileName);
+            const isFromUserCode = isFromUserCodeSvelte(fileName);
+            const isKnownFramework = isKnownFrameworkComponentSvelte(name, fileName);
+            const hasFrameworkPattern = hasFrameworkPatternSvelte(name);
+
+            // Extract props and state
+            const props = extractSvelteProps(instance);
+            const state = extractSvelteState(instance);
+
+            // Calculate score
+            const score = calculateComponentScoreSvelte({
+              fileName,
+              parentFileName: instance.$$.parent?.$$?.ctx?.__file || '',
+              hasProps: Object.keys(props).length > 0,
+              hasState: Object.keys(state).length > 0,
+              isKnownFramework,
+              hasFrameworkPattern,
+            });
+
+            const isUserComp = isUserComponentSvelte(score, isKnownFramework, hasFrameworkPattern);
+
+            componentHierarchy.push({
+              name,
+              isUserComponent: isUserComp,
+              score,
+              fileName,
+              props: sanitizePropsSvelte(props),
+              state,
+            });
+          }
+
+          instance = instance.$$.parent;
+        }
+
+        // Return the outermost user component
+        const userComponents = componentHierarchy.filter((c) => c.isUserComponent);
+        const targetComponent = userComponents[userComponents.length - 1] || componentHierarchy[0];
+
+        if (targetComponent) {
+          return {
+            framework: 'Svelte',
+            name: targetComponent.name,
+            detail: targetComponent.fileName || '',
+            isUserComponent: targetComponent.isUserComponent,
+            hierarchy: componentHierarchy
+              .filter((c) => c.isUserComponent || c.name.match(/^(App|Layout|Page|Main)$/))
+              .map((c) => c.name),
+            allUserComponents: userComponents.map((c) => c.name),
+            fileName: targetComponent.fileName,
+            props: targetComponent.props,
+            state: targetComponent.state,
+          };
+        }
+      }
+      current = current.parentElement;
+    }
+  } catch (e) {
+    // Silent fail
+    console.error('[HoverComp] Error detecting Svelte:', e);
   }
   return null;
 }
