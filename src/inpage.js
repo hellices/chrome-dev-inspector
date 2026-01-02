@@ -158,9 +158,9 @@
               // Calculate score (higher = more likely user component)
               let score = 0;
 
-              // 프로덕션 환경: 디버그 정보 없으면 기본 점수 부여
+              // Production environment: give a default score when no debug/source information is available
               if (!fileName && !debugSource) {
-                score += 5; // 프로덕션 빌드는 기본적으로 유효한 컴포넌트로 간주
+                score += 5; // Production builds are treated as valid components by default
               }
 
               // Strong negative indicators
