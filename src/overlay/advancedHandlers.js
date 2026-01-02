@@ -7,6 +7,52 @@ import { getAllCSSProperties, getCommonCSSValues } from '../utils/cssHelper.js';
 import { escapeHtml } from '../utils/domHelpers.js';
 
 /**
+ * Create simple text input
+ * @param {string} placeholder - Input placeholder
+ * @returns {HTMLInputElement} Input element
+ */
+function createTextInput(placeholder) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = placeholder;
+  input.style.cssText =
+    'background: rgba(25,118,210,0.2); color: #fff; border: 1px solid #1976d2; padding: 4px 8px; border-radius: 3px; font-size: 10px; width: 100%; margin-top: 4px; outline: none;';
+  return input;
+}
+
+/**
+ * Setup input handlers for add operations
+ * @param {HTMLInputElement} input - Input element
+ * @param {HTMLElement} btn - Button element
+ * @param {Function} onSubmit - Submit callback
+ * @param {Function} onCancel - Cancel callback
+ */
+function setupInputHandlers(input, btn, onSubmit, onCancel) {
+  input.onkeydown = (keyEvent) => {
+    if (keyEvent.key === 'Enter') {
+      keyEvent.preventDefault();
+      const value = input.value.trim();
+      if (value) {
+        onSubmit(value, input);
+      } else {
+        onCancel();
+      }
+    }
+    if (keyEvent.key === 'Escape') {
+      keyEvent.preventDefault();
+      onCancel();
+    }
+    keyEvent.stopPropagation();
+  };
+
+  input.onblur = () => {
+    setTimeout(() => {
+      onCancel();
+    }, 200);
+  };
+}
+
+/**
  * Setup add class button handlers
  * @param {HTMLElement} panel - Panel element
  * @param {HTMLElement} element - Target element
@@ -17,44 +63,25 @@ export function setupAddClassHandlers(panel, element, refreshCallback) {
     btn.onclick = (e) => {
       e.stopPropagation();
 
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.placeholder = 'Enter class name...';
-      input.style.cssText =
-        'background: rgba(25,118,210,0.2); color: #fff; border: 1px solid #1976d2; padding: 4px 8px; border-radius: 3px; font-size: 10px; width: 100%; margin-top: 4px; outline: none;';
-
+      const input = createTextInput('Enter class name...');
       btn.parentNode.insertBefore(input, btn);
       btn.style.display = 'none';
       input.focus();
 
-      input.onkeydown = (keyEvent) => {
-        if (keyEvent.key === 'Enter') {
-          keyEvent.preventDefault();
-          const newClass = input.value.trim();
-          if (newClass) {
-            element.classList.add(newClass);
-            input.value = '';
-            input.focus();
-            refreshCallback(element);
-          } else {
-            btn.style.display = '';
-            input.remove();
-          }
-        }
-        if (keyEvent.key === 'Escape') {
-          keyEvent.preventDefault();
+      setupInputHandlers(
+        input,
+        btn,
+        (newClass, inputElement) => {
+          element.classList.add(newClass);
+          inputElement.value = '';
+          inputElement.focus();
+          refreshCallback(element);
+        },
+        () => {
           btn.style.display = '';
           input.remove();
         }
-        keyEvent.stopPropagation();
-      };
-
-      input.onblur = () => {
-        setTimeout(() => {
-          btn.style.display = '';
-          input.remove();
-        }, 200);
-      };
+      );
     };
   });
 }
@@ -117,45 +144,54 @@ function createStyleInput(allCssProperties, element, btn, refreshCallback) {
 }
 
 /**
- * Create autocomplete dropdown
+ * Autocomplete dropdown configuration
  */
-function createAutocompleteDropdown() {
-  const dropdown = document.createElement('div');
-  dropdown.style.cssText =
-    'position: fixed; width: 250px; max-height: 200px; overflow-y: auto; background: rgba(25,25,25,0.98); border: 1px solid #1976d2; border-radius: 3px; z-index: 2147483647; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);';
-  dropdown.className = 'css-autocomplete-dropdown';
-
-  ensureAutocompleteStyles();
-  document.body.appendChild(dropdown);
-
-  return dropdown;
-}
+const AUTOCOMPLETE_CONFIG = {
+  DROPDOWN_STYLE: 'position: fixed; width: 250px; max-height: 200px; overflow-y: auto; background: rgba(25,25,25,0.98); border: 1px solid #1976d2; border-radius: 3px; z-index: 2147483647; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);',
+  DROPDOWN_CLASS: 'css-autocomplete-dropdown',
+  STYLE_ID: 'css-autocomplete-scrollbar-style',
+  SCROLLBAR_STYLES: `
+    .css-autocomplete-dropdown::-webkit-scrollbar {
+      width: 8px;
+    }
+    .css-autocomplete-dropdown::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.3);
+      border-radius: 4px;
+    }
+    .css-autocomplete-dropdown::-webkit-scrollbar-thumb {
+      background: rgba(25,118,210,0.5);
+      border-radius: 4px;
+    }
+    .css-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+      background: rgba(25,118,210,0.7);
+    }
+  `,
+};
 
 /**
  * Ensure autocomplete scrollbar styles exist
  */
 function ensureAutocompleteStyles() {
-  if (!document.getElementById('css-autocomplete-scrollbar-style')) {
+  if (!document.getElementById(AUTOCOMPLETE_CONFIG.STYLE_ID)) {
     const style = document.createElement('style');
-    style.id = 'css-autocomplete-scrollbar-style';
-    style.textContent = `
-      .css-autocomplete-dropdown::-webkit-scrollbar {
-        width: 8px;
-      }
-      .css-autocomplete-dropdown::-webkit-scrollbar-track {
-        background: rgba(0,0,0,0.3);
-        border-radius: 4px;
-      }
-      .css-autocomplete-dropdown::-webkit-scrollbar-thumb {
-        background: rgba(25,118,210,0.5);
-        border-radius: 4px;
-      }
-      .css-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-        background: rgba(25,118,210,0.7);
-      }
-    `;
+    style.id = AUTOCOMPLETE_CONFIG.STYLE_ID;
+    style.textContent = AUTOCOMPLETE_CONFIG.SCROLLBAR_STYLES;
     document.head.appendChild(style);
   }
+}
+
+/**
+ * Create autocomplete dropdown
+ */
+function createAutocompleteDropdown() {
+  const dropdown = document.createElement('div');
+  dropdown.style.cssText = AUTOCOMPLETE_CONFIG.DROPDOWN_STYLE;
+  dropdown.className = AUTOCOMPLETE_CONFIG.DROPDOWN_CLASS;
+
+  ensureAutocompleteStyles();
+  document.body.appendChild(dropdown);
+
+  return dropdown;
 }
 
 /**

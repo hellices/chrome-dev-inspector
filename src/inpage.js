@@ -620,7 +620,8 @@
   const CACHE_DURATION = 1000; // 1 second
 
   /**
-   * Get XPath for an element
+   * Get XPath for an element (inline implementation for injected script)
+   * Note: Cannot import from utils as this runs in page context
    */
   function getXPath(element) {
     if (!element || element.nodeType !== Node.ELEMENT_NODE) {

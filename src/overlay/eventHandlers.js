@@ -18,51 +18,77 @@ import {
 } from '../utils/cssHelper.js';
 
 /**
+ * Setup editable element handlers (generic)
+ * @param {HTMLElement} editableElement - Editable element
+ * @param {string} originalValue - Original value
+ * @param {Object} config - Configuration object
+ */
+function setupEditableElementHandlers(editableElement, originalValue, config) {
+  const {
+    focusStyles = {},
+    blurStyles = {},
+    onValueChange,
+  } = config;
+
+  editableElement.setAttribute('contenteditable', 'true');
+  editableElement.setAttribute('spellcheck', 'false');
+
+  editableElement.onfocus = (e) => {
+    e.stopPropagation();
+    Object.assign(editableElement.style, focusStyles);
+    selectAllText(editableElement);
+  };
+
+  editableElement.onblur = (e) => {
+    Object.assign(editableElement.style, blurStyles);
+
+    const newValue = editableElement.textContent.trim();
+    if (newValue !== originalValue && onValueChange) {
+      onValueChange(newValue);
+    }
+  };
+
+  editableElement.onkeydown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      editableElement.blur();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      editableElement.textContent = originalValue;
+      editableElement.blur();
+    }
+    e.stopPropagation();
+  };
+
+  editableElement.onclick = (e) => e.stopPropagation();
+}
+
+/**
  * Setup editable hook handlers
  * @param {HTMLElement} panel - Panel element
  * @param {HTMLElement} element - Target element
  */
 export function setupEditableHookHandlers(panel, element) {
   panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_HOOK}`).forEach((span) => {
-    span.setAttribute('contenteditable', 'true');
-    span.setAttribute('spellcheck', 'false');
-
     const originalValue = span.textContent;
 
-    span.onfocus = (e) => {
-      e.stopPropagation();
-      span.style.background = 'rgba(76,175,80,0.5)';
-      span.style.outline = '2px solid #4caf50';
-      span.style.boxShadow = '0 0 8px rgba(76,175,80,0.4)';
-      selectAllText(span);
-    };
-
-    span.onblur = (e) => {
-      span.style.background = 'rgba(102,187,106,0.1)';
-      span.style.outline = 'none';
-      span.style.boxShadow = 'none';
-
-      const newValue = span.textContent.trim();
-      if (newValue !== originalValue) {
+    setupEditableElementHandlers(span, originalValue, {
+      focusStyles: {
+        background: 'rgba(76,175,80,0.5)',
+        outline: '2px solid #4caf50',
+        boxShadow: '0 0 8px rgba(76,175,80,0.4)',
+      },
+      blurStyles: {
+        background: 'rgba(102,187,106,0.1)',
+        outline: 'none',
+        boxShadow: 'none',
+      },
+      onValueChange: (newValue) => {
         const hookIndex = parseInt(span.getAttribute('data-hook-index'));
         updateHook(element, hookIndex, newValue);
-      }
-    };
-
-    span.onkeydown = (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        span.blur();
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        span.textContent = originalValue;
-        span.blur();
-      }
-      e.stopPropagation();
-    };
-
-    span.onclick = (e) => e.stopPropagation();
+      },
+    });
   });
 }
 
@@ -73,45 +99,24 @@ export function setupEditableHookHandlers(panel, element) {
  */
 export function setupEditableStateHandlers(panel, element) {
   panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_STATE}`).forEach((div) => {
-    div.setAttribute('contenteditable', 'true');
-    div.setAttribute('spellcheck', 'false');
-
     const originalValue = div.textContent;
 
-    div.onfocus = (e) => {
-      e.stopPropagation();
-      div.style.background = 'rgba(171,71,188,0.5)';
-      div.style.outline = '2px solid #ab47bc';
-      div.style.boxShadow = '0 0 8px rgba(171,71,188,0.4)';
-      selectAllText(div);
-    };
-
-    div.onblur = (e) => {
-      div.style.background = 'rgba(0,0,0,0.3)';
-      div.style.outline = 'none';
-      div.style.boxShadow = 'none';
-
-      const newValue = div.textContent.trim();
-      if (newValue !== originalValue) {
+    setupEditableElementHandlers(div, originalValue, {
+      focusStyles: {
+        background: 'rgba(171,71,188,0.5)',
+        outline: '2px solid #ab47bc',
+        boxShadow: '0 0 8px rgba(171,71,188,0.4)',
+      },
+      blurStyles: {
+        background: 'rgba(0,0,0,0.3)',
+        outline: 'none',
+        boxShadow: 'none',
+      },
+      onValueChange: (newValue) => {
         const stateKey = div.getAttribute('data-state-key');
         updateState(element, stateKey, newValue);
-      }
-    };
-
-    div.onkeydown = (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        div.blur();
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        div.textContent = originalValue;
-        div.blur();
-      }
-      e.stopPropagation();
-    };
-
-    div.onclick = (e) => e.stopPropagation();
+      },
+    });
   });
 }
 

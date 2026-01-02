@@ -2,6 +2,8 @@
  * HTML mode helpers - for detecting and displaying plain HTML elements
  */
 
+import { escapeHtml } from './domHelpers.js';
+
 /**
  * Get basic HTML element information (no framework detection)
  * @param {HTMLElement} element - DOM element to inspect
@@ -286,7 +288,8 @@ function formatCSSSection(css) {
       (k) => css.styles[k] && css.styles[k] !== 'none' && css.styles[k] !== 'auto'
     );
     if (styleKeys.length > 0) {
-      html += `<div class="toggle-section" style="colo ✏️</div>`;
+      html += `<div class="toggle-section" style="color: #4db6ac; margin-top: 12px; font-weight: bold; padding: 6px 0; border-bottom: 1px solid rgba(77,182,172,0.3); cursor: pointer;">`;
+      html += `▶ Computed Styles (${styleKeys.length}) ✏️</div>`;
       html += `<div style="margin-left: 0; margin-top: 8px; font-size: 10px; display: none;">`;
 
       styleKeys.forEach((key) => {
@@ -295,8 +298,7 @@ function formatCSSSection(css) {
         html += `<span class="hovercomp-computed-style-item" data-style-prop="${escapeHtml(key)}" data-style-value="${escapeHtml(value)}" data-active="true" style="cursor: pointer; padding: 4px 8px; border-radius: 3px; background: rgba(77,182,172,0.2); display: inline-block; transition: all 0.2s;">`;
         html += `<span style="color: #4db6ac; font-weight: bold;">${escapeHtml(key)}:</span> `;
         html += `<span style="color: #80cbc4; word-break: break-all;">${escapeHtml(value)}</span>`;
-        html += `n> `;
-        html += `<span style="color: #80cbc4; word-break: break-all;">${escapeHtml(value)}</span>`;
+        html += `</span>`;
         html += `</div>`;
       });
 
@@ -307,12 +309,3 @@ function formatCSSSection(css) {
   return html;
 }
 
-/**
- * Escape HTML special characters
- */
-function escapeHtml(text) {
-  if (typeof text !== 'string') return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}

@@ -36,20 +36,37 @@ export function createOverlay() {
 }
 
 /**
- * Create React component overlay element (lighter, no panel)
- * @returns {HTMLElement} React overlay element
+ * Create framework-specific overlay element (lighter, no panel)
+ * @param {string} type - Type of overlay ('react' or 'vue')
+ * @returns {HTMLElement} Framework overlay element
  */
-export function createReactOverlay() {
+function createFrameworkOverlay(type) {
+  const config = {
+    react: {
+      id: 'hovercomp-react-overlay',
+      className: CSS_CLASSES.OVERLAY + '-react',
+      background: 'rgba(156, 39, 176, 0.05)',
+      border: '2px dashed rgba(156, 39, 176, 0.4)',
+    },
+    vue: {
+      id: 'hovercomp-vue-overlay',
+      className: CSS_CLASSES.OVERLAY + '-vue',
+      background: 'rgba(66, 184, 131, 0.05)',
+      border: '2px dashed rgba(66, 184, 131, 0.4)',
+    },
+  };
+
+  const { id, className, background, border } = config[type];
   const div = document.createElement('div');
-  div.id = 'hovercomp-react-overlay';
-  div.className = CSS_CLASSES.OVERLAY + '-react';
+  div.id = id;
+  div.className = className;
   div.style.cssText = `
     position: absolute;
     z-index: ${OVERLAY_Z_INDEX - 1};
     pointer-events: none;
     display: none;
-    background: rgba(156, 39, 176, 0.05);
-    border: 2px dashed rgba(156, 39, 176, 0.4);
+    background: ${background};
+    border: ${border};
     box-sizing: border-box;
   `;
   document.body.appendChild(div);
@@ -58,25 +75,19 @@ export function createReactOverlay() {
 }
 
 /**
+ * Create React component overlay element (lighter, no panel)
+ * @returns {HTMLElement} React overlay element
+ */
+export function createReactOverlay() {
+  return createFrameworkOverlay('react');
+}
+
+/**
  * Create Vue component overlay element (lighter, no panel)
  * @returns {HTMLElement} Vue overlay element
  */
 export function createVueOverlay() {
-  const div = document.createElement('div');
-  div.id = 'hovercomp-vue-overlay';
-  div.className = CSS_CLASSES.OVERLAY + '-vue';
-  div.style.cssText = `
-    position: absolute;
-    z-index: ${OVERLAY_Z_INDEX - 1};
-    pointer-events: none;
-    display: none;
-    background: rgba(66, 184, 131, 0.05);
-    border: 2px dashed rgba(66, 184, 131, 0.4);
-    box-sizing: border-box;
-  `;
-  document.body.appendChild(div);
-
-  return div;
+  return createFrameworkOverlay('vue');
 }
 
 /**
@@ -114,11 +125,11 @@ function createPanel() {
 }
 
 /**
- * Show overlay for element
+ * Show overlay for element (generic implementation)
  * @param {HTMLElement} overlay - Overlay element
  * @param {HTMLElement} element - Target element
  */
-export function showOverlay(overlay, element) {
+function showOverlayGeneric(overlay, element) {
   if (!overlay || !element) return;
 
   const rect = element.getBoundingClientRect();
@@ -130,65 +141,38 @@ export function showOverlay(overlay, element) {
 }
 
 /**
- * Show React component overlay for element
- * @param {HTMLElement} reactOverlay - React overlay element
- * @param {HTMLElement} element - Target element
- */
-export function showReactOverlay(reactOverlay, element) {
-  if (!reactOverlay || !element) return;
-
-  const rect = element.getBoundingClientRect();
-  reactOverlay.style.display = 'block';
-  reactOverlay.style.top = `${rect.top + window.scrollY}px`;
-  reactOverlay.style.left = `${rect.left + window.scrollX}px`;
-  reactOverlay.style.width = `${rect.width}px`;
-  reactOverlay.style.height = `${rect.height}px`;
-}
-
-/**
- * Show Vue component overlay for element
- * @param {HTMLElement} vueOverlay - Vue overlay element
- * @param {HTMLElement} element - Target element
- */
-export function showVueOverlay(vueOverlay, element) {
-  if (!vueOverlay || !element) return;
-
-  const rect = element.getBoundingClientRect();
-  vueOverlay.style.display = 'block';
-  vueOverlay.style.top = `${rect.top + window.scrollY}px`;
-  vueOverlay.style.left = `${rect.left + window.scrollX}px`;
-  vueOverlay.style.width = `${rect.width}px`;
-  vueOverlay.style.height = `${rect.height}px`;
-}
-
-/**
- * Hide overlay
+ * Hide overlay (generic implementation)
  * @param {HTMLElement} overlay - Overlay element
  */
-export function hideOverlay(overlay) {
+function hideOverlayGeneric(overlay) {
   if (overlay) {
     overlay.style.display = 'none';
   }
 }
 
-/**
- * Hide React component overlay
- * @param {HTMLElement} reactOverlay - React overlay element
- */
-export function hideReactOverlay(reactOverlay) {
-  if (reactOverlay) {
-    reactOverlay.style.display = 'none';
-  }
+// Public API - All functions use the generic implementation
+export function showOverlay(overlay, element) {
+  showOverlayGeneric(overlay, element);
 }
 
-/**
- * Hide Vue component overlay
- * @param {HTMLElement} vueOverlay - Vue overlay element
- */
+export function showReactOverlay(reactOverlay, element) {
+  showOverlayGeneric(reactOverlay, element);
+}
+
+export function showVueOverlay(vueOverlay, element) {
+  showOverlayGeneric(vueOverlay, element);
+}
+
+export function hideOverlay(overlay) {
+  hideOverlayGeneric(overlay);
+}
+
+export function hideReactOverlay(reactOverlay) {
+  hideOverlayGeneric(reactOverlay);
+}
+
 export function hideVueOverlay(vueOverlay) {
-  if (vueOverlay) {
-    vueOverlay.style.display = 'none';
-  }
+  hideOverlayGeneric(vueOverlay);
 }
 
 /**
