@@ -16,8 +16,6 @@ import {
 } from './reactHelpers.js';
 
 import {
-  isFromUserCode as isFromUserCodeVue,
-  isFromNodeModules as isFromNodeModulesVue,
   isKnownFrameworkComponent as isKnownFrameworkComponentVue,
   hasFrameworkPattern as hasFrameworkPatternVue,
   calculateComponentScore as calculateComponentScoreVue,
@@ -30,8 +28,6 @@ import {
 } from './vueHelpers.js';
 
 import {
-  isFromUserCode as isFromUserCodeSvelte,
-  isFromNodeModules as isFromNodeModulesSvelte,
   isKnownFrameworkComponent as isKnownFrameworkComponentSvelte,
   hasFrameworkPattern as hasFrameworkPatternSvelte,
   calculateComponentScore as calculateComponentScoreSvelte,
@@ -575,7 +571,11 @@ export function detectSvelte(node) {
       current = current.parentElement;
     }
   } catch (e) {
-    // Silent fail in UI, but record for diagnostics
+    // NOTE: Error logging strategy
+    // - console.error is used for development debugging
+    // - In production builds, console statements are removed by the build script
+    // - Custom error log (__HOVERCOMP_ERROR_LOG__) persists errors for production debugging
+    // - Errors are silently handled in the UI to avoid disrupting the user experience
     console.error('[HoverComp] Error detecting Svelte:', e);
     if (typeof window !== 'undefined') {
       if (!window.__HOVERCOMP_ERROR_LOG__) {

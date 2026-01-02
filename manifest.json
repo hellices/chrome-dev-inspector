@@ -4,7 +4,7 @@
   "version": "1.0.3",
   "description": "Hover-based component inspector for React and Web Components",
   "permissions": [],
-  "optional_host_permissions": [
+  "host_permissions": [
     "<all_urls>"
   ],
   "content_scripts": [
