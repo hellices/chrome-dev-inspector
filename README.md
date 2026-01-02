@@ -160,7 +160,7 @@ Renders the inspection panel with component details. Handles user interactions l
 
 - **React**: Uses `__REACT_DEVTOOLS_GLOBAL_HOOK__` and fiber tree traversal
 - **Vue**: Accesses `__vue__` (v2) or `__vueParentComponent` (v3)
-- **Svelte**: Detects via `__svelte_meta` and component wrapper patterns
+- **Svelte**: Detects via `__svelte_*` keys, Svelte's `$$` instance property, and `data-svelte-h` attributes
 - **Web Components**: Detects custom elements and Shadow DOM
 
 The extension prioritizes user components over framework internals for cleaner inspection.
@@ -182,7 +182,22 @@ Tests validate manifest structure, file existence, and module exports.
 
 ## Configuration
 
-The extension works on all websites by default. You can customize permissions in `manifest.json` if needed:
+### Permissions
+
+The extension requires `host_permissions` for `<all_urls>` to function on all websites. This permission is necessary because:
+
+- The extension needs to inject content scripts to detect framework components on any website
+- Component inspection works by analyzing the DOM and framework internals of the visited page
+- Without broad host permissions, the extension would need to request permission for each individual site
+
+**Privacy and Security:**
+- The extension does **not** collect, store, or transmit any data from websites you visit
+- All component inspection happens locally in your browser
+- No network requests are made by the extension
+- The extension only activates when you explicitly hover over elements
+- All code is open source and auditable in this repository
+
+You can customize permissions in `manifest.json` if needed:
 
 ```json
 "host_permissions": [
