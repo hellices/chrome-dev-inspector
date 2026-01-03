@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "HoverComp Dev Inspector",
-  "version": "1.0.3",
-  "description": "Hover-based component inspector for React and Web Components",
+  "version": "2.0.0",
+  "description": "Hover-based component inspector with performance profiling and advanced tracking for React, Vue, and Svelte",
   "permissions": [],
   "host_permissions": [
     "<all_urls>"
@@ -35,6 +35,7 @@
         "src/utils/reactHelpers.js",
         "src/utils/vueHelpers.js",
         "src/utils/svelteHelpers.js",
+        "src/utils/componentHelpers.js",
         "src/utils/htmlHelpers.js",
         "src/utils/formatters.js",
         "src/utils/frameworkDetect.js",
@@ -42,6 +43,10 @@
         "src/utils/overlayHelpers.js",
         "src/utils/styleHelpers.js",
         "src/utils/throttle.js",
+        "src/utils/stateTracker.js",
+        "src/utils/componentTree.js",
+        "src/utils/contextDetector.js",
+        "src/utils/svelteStoreDetector.js",
         "src/overlay/overlayManager.js",
         "src/overlay/eventHandlers.js",
         "src/overlay/advancedHandlers.js",

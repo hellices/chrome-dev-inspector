@@ -3,10 +3,7 @@
  */
 
 import { CSS_CLASSES } from '../config/constants.js';
-import { getXPath } from '../utils/domHelpers.js';
 import {
-  invalidateCache,
-  requestComponentInfo,
   updateHook,
   updateState,
 } from '../utils/messageHandler.js';
@@ -39,7 +36,7 @@ function setupEditableElementHandlers(editableElement, originalValue, config) {
     selectAllText(editableElement);
   };
 
-  editableElement.onblur = (e) => {
+  editableElement.onblur = (_e) => {
     Object.assign(editableElement.style, blurStyles);
 
     const newValue = editableElement.textContent.trim();
@@ -70,6 +67,8 @@ function setupEditableElementHandlers(editableElement, originalValue, config) {
  * @param {HTMLElement} element - Target element
  */
 export function setupEditableHookHandlers(panel, element) {
+  if (!panel || !element) return;
+  
   panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_HOOK}`).forEach((span) => {
     const originalValue = span.textContent;
 
@@ -98,6 +97,8 @@ export function setupEditableHookHandlers(panel, element) {
  * @param {HTMLElement} element - Target element
  */
 export function setupEditableStateHandlers(panel, element) {
+  if (!panel || !element) return;
+  
   panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_STATE}`).forEach((div) => {
     const originalValue = div.textContent;
 
@@ -127,6 +128,8 @@ export function setupEditableStateHandlers(panel, element) {
  * @param {Function} refreshCallback - Callback to refresh overlay
  */
 export function setupClassToggleHandlers(panel, element, refreshCallback) {
+  if (!panel || !element) return;
+  
   // Support both old and new class names
   const selectors = [`.${CSS_CLASSES.TOGGLE_CLASS}`, '.hovercomp-toggle-class'];
   selectors.forEach((selector) => {
@@ -174,6 +177,8 @@ export function setupClassToggleHandlers(panel, element, refreshCallback) {
  * @param {Function} refreshCallback - Callback to refresh overlay
  */
 export function setupStyleToggleHandlers(panel, element, refreshCallback) {
+  if (!panel || !element) return;
+  
   panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_STYLE}`).forEach((span) => {
     span.onclick = (e) => {
       e.stopPropagation();
@@ -245,6 +250,8 @@ export function setupStyleToggleHandlers(panel, element, refreshCallback) {
  * @param {HTMLElement} element - Target element
  */
 export function setupComputedStyleHandlers(panel, element) {
+  if (!panel || !element) return;
+  
   // Support both old and new class names
   const selectors = [`.${CSS_CLASSES.COMPUTED_STYLE_ITEM}`, '.hovercomp-computed-style-item'];
   selectors.forEach((selector) => {
@@ -252,7 +259,6 @@ export function setupComputedStyleHandlers(panel, element) {
       item.onclick = (e) => {
         e.stopPropagation();
         const styleProp = item.getAttribute('data-style-prop');
-        const styleValue = item.getAttribute('data-style-value');
         const isActive = item.getAttribute('data-active') === 'true';
 
         if (isActive) {
@@ -285,6 +291,8 @@ export function setupComputedStyleHandlers(panel, element) {
  * @param {Function} adjustPositionCallback - Callback to adjust panel position
  */
 export function setupToggleSectionHandlers(panel, expandedSections, adjustPositionCallback) {
+  if (!panel || !expandedSections) return;
+  
   panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_SECTION}`).forEach((toggle) => {
     toggle.style.cursor = 'pointer';
     toggle.onclick = (e) => {
@@ -324,6 +332,8 @@ function updateExpandedSectionsState(toggle, isExpanded, expandedSections) {
  * @param {Object} expandedSections - Expanded sections state
  */
 export function restoreExpandedSections(panel, expandedSections) {
+  if (!panel || !expandedSections) return;
+  
   setTimeout(() => {
     panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_SECTION}`).forEach((toggle) => {
       const sectionText = toggle.textContent.toLowerCase();
@@ -352,11 +362,19 @@ export function restoreExpandedSections(panel, expandedSections) {
  * @param {HTMLElement} element - Element to select
  */
 function selectAllText(element) {
-  const range = document.createRange();
-  range.selectNodeContents(element);
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
+  if (!element) return;
+  
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  } catch (error) {
+    console.warn('[HoverComp] Error selecting text:', error);
+  }
 }
 
 // ============================================================================
@@ -390,7 +408,7 @@ export function setupEditableTextContentHandler(panel, element) {
     textContentDiv.style.outline = '2px solid #81c784';
   };
 
-  textContentDiv.onblur = (e) => {
+  textContentDiv.onblur = (_e) => {
     textContentDiv.setAttribute('contenteditable', 'false');
     textContentDiv.style.background = 'rgba(0,0,0,0.3)';
     textContentDiv.style.outline = 'none';
@@ -442,7 +460,7 @@ export function setupEditableAttributeHandlers(panel, element, refreshOverlay) {
       attrDiv.style.outline = '2px solid #ffa726';
     };
 
-    attrDiv.onblur = (e) => {
+    attrDiv.onblur = (_e) => {
       attrDiv.setAttribute('contenteditable', 'false');
       attrDiv.style.background = 'transparent';
       attrDiv.style.outline = 'none';

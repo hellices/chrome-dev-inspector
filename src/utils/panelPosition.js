@@ -12,6 +12,17 @@ import { PANEL_SPACING, PANEL_MARGIN } from '../config/constants.js';
  * @returns {{left: number, top: number}} Position object
  */
 export function calculatePanelPosition(mouseX, mouseY, panelRect) {
+  // Validate inputs
+  if (typeof mouseX !== 'number' || typeof mouseY !== 'number') {
+    console.warn('[HoverComp] Invalid mouse position:', mouseX, mouseY);
+    return { left: PANEL_MARGIN, top: PANEL_MARGIN };
+  }
+  
+  if (!panelRect) {
+    console.warn('[HoverComp] Invalid panel rect');
+    return { left: mouseX + PANEL_SPACING, top: mouseY - 20 };
+  }
+  
   const panelWidth = panelRect.width || 400;
   let panelHeight = panelRect.height || 600;
   const margin = PANEL_MARGIN;
@@ -59,7 +70,17 @@ export function calculatePanelPosition(mouseX, mouseY, panelRect) {
  * @param {HTMLElement} panel - Panel element
  */
 export function adjustPanelPosition(panel) {
+  if (!panel) {
+    console.warn('[HoverComp] adjustPanelPosition called with null panel');
+    return;
+  }
+  
   const panelRect = panel.getBoundingClientRect();
+  if (!panelRect) {
+    console.warn('[HoverComp] Could not get panel bounding rect');
+    return;
+  }
+  
   const margin = PANEL_MARGIN;
 
   // Check if panel is cut off at bottom
@@ -87,6 +108,16 @@ export function adjustPanelPosition(panel) {
  * @param {boolean} isPinned - Whether panel is pinned
  */
 export function applyPanelPosition(panel, position, isPinned = false) {
+  if (!panel) {
+    console.warn('[HoverComp] applyPanelPosition called with null panel');
+    return;
+  }
+  
+  if (!position || typeof position.left !== 'number' || typeof position.top !== 'number') {
+    console.warn('[HoverComp] Invalid position:', position);
+    return;
+  }
+  
   panel.style.left = `${position.left}px`;
   panel.style.top = `${position.top}px`;
   panel.style.transform = 'none';

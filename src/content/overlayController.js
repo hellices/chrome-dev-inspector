@@ -50,6 +50,7 @@ import { invalidateCache } from '../utils/messageHandler.js';
 function setupAllEventHandlers(panel, element, state, requestComponentInfoFn) {
   const refreshOverlay = (el) => {
     invalidateCache(el);
+    // Short delay to ensure cache is invalidated before re-requesting
     setTimeout(() => requestComponentInfoFn(el, state.inspectionMode), 10);
   };
 
@@ -92,9 +93,15 @@ function setupAllEventHandlers(panel, element, state, requestComponentInfoFn) {
  * Update overlay with component info
  */
 export function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPath, state, requestComponentInfoFn) {
+  // Validate element
+  if (!element || !(element instanceof HTMLElement)) {
+    return;
+  }
+
   // Track detected frameworks from component info
   trackDetectedFramework(componentInfo, state.detectedFrameworksFromInpage);
 
+  // Ensure overlays exist
   if (!state.overlay) {
     state.overlay = createOverlay();
   }
@@ -126,7 +133,7 @@ export function updateOverlay(element, componentInfo, mouseX, mouseY, reactCompo
         }
 
         // Update content with HTML mode formatter
-        const html = formatHtmlElementInfo(htmlInfo, state.isPinned);
+        const html = formatHtmlElementInfo(htmlInfo, state.isPinned, element);
         updatePanelContent(panel, html);
 
         // Setup event handlers
@@ -162,7 +169,7 @@ export function updateOverlay(element, componentInfo, mouseX, mouseY, reactCompo
           // Show appropriate note based on detected frameworks
           const frameworkNote = getFrameworkNote(state.detectedFrameworks);
           
-          const html = frameworkNote + formatHtmlElementInfo(htmlInfo, state.isPinned);
+          const html = frameworkNote + formatHtmlElementInfo(htmlInfo, state.isPinned, element);
           updatePanelContent(panel, html);
 
           // Setup event handlers
@@ -223,8 +230,8 @@ export function updateOverlay(element, componentInfo, mouseX, mouseY, reactCompo
     setTimeout(() => adjustPanelPosition(panel), 50);
   }
 
-  // Update content
-  const html = formatComponentInfo(componentInfo, state.isPinned);
+  // Update content (pass element for tracking)
+  const html = formatComponentInfo(componentInfo, state.isPinned, element);
   updatePanelContent(panel, html);
 
   // Setup event handlers

@@ -19,20 +19,21 @@ export const state = {
   inspectionMode: 'auto', // 'auto', 'react', 'html', 'vue', etc.
   detectedFrameworks: [], // List of detected frameworks on the page
   detectedFrameworksFromInpage: new Set(), // Frameworks detected by inpage.js (from actual components)
+  frameworkObserver: null, // MutationObserver for framework detection
+  observerInitTimeout: null, // Timeout ID for observer initialization
+  observerCleanupTimeout: null, // Timeout ID for observer cleanup
 };
 
 /**
  * Reset overlay state (unpin and hide)
  */
 export function resetOverlayState(hideOverlayFn, hideReactOverlayFn, hideVueOverlayFn) {
-  console.log('[HoverComp] Resetting overlay state - isPinned was:', state.isPinned);
   state.isPinned = false;
   state.pinnedPosition = null;
   state.currentTarget = null;
   hideOverlayFn(state.overlay);
   hideReactOverlayFn(state.reactOverlay);
   hideVueOverlayFn(state.vueOverlay);
-  console.log('[HoverComp] Reset complete - isPinned now:', state.isPinned);
 }
 
 /**
@@ -47,5 +48,4 @@ export function toggleEnabled(hideOverlayFn, hideReactOverlayFn, hideVueOverlayF
     state.isPinned = false;
     state.pinnedPosition = null;
   }
-  console.log(`[HoverComp Dev Inspector] ${state.isEnabled ? 'Enabled' : 'Disabled'}`);
 }

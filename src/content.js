@@ -5,7 +5,7 @@
 
 import { injectScript } from './utils/domHelpers.js';
 import { createContentMessageHandler, requestComponentInfo } from './utils/messageHandler.js';
-import { hideOverlay, hideReactOverlay, hideVueOverlay } from './overlay/overlayManager.js';
+import { hideOverlay, hideReactOverlay, hideVueOverlay, cleanupAllOverlays } from './overlay/overlayManager.js';
 import { state, resetOverlayState, toggleEnabled } from './content/state.js';
 import {
   updateDetectedFrameworksState,
@@ -63,20 +63,29 @@ function init() {
   }, 3000);
   
   // Re-detect on DOM changes (for SPAs)
-  const observer = new MutationObserver(() => {
-    updateDetectedFrameworksState(state);
-  });
-  
   // Start observing after initial load
-  setTimeout(() => {
-    observer.observe(document.body, { 
-      childList: true, 
-      subtree: true 
-    });
-    
-    // Stop observing after 60 seconds to avoid performance issues while still supporting SPAs
-    setTimeout(() => observer.disconnect(), 60000);
+  const observerTimeout = setTimeout(() => {
+    if (!state.frameworkObserver && document.body) {
+      state.frameworkObserver = new MutationObserver(() => {
+        updateDetectedFrameworksState(state);
+      });
+      
+      state.frameworkObserver.observe(document.body, { 
+        childList: true, 
+        subtree: true 
+      });
+      
+      // Stop observing after 60 seconds to avoid performance issues while still supporting SPAs
+      state.observerCleanupTimeout = setTimeout(() => {
+        if (state.frameworkObserver) {
+          state.frameworkObserver.disconnect();
+          state.frameworkObserver = null;
+        }
+      }, 60000);
+    }
   }, 500);
+  
+  state.observerInitTimeout = observerTimeout;
 
   // Setup event listeners with proper bindings
   document.addEventListener('mousemove', (e) => handleMouseMove(e, state, hideOverlayFns), true);
@@ -87,8 +96,6 @@ function init() {
   window.addEventListener('scroll', () => handleScroll(state, resetOverlayState, updateOverlayOnScroll, hideOverlayFns), true);
   window.addEventListener('message', messageHandler);
   window.addEventListener('beforeunload', () => handleBeforeUnload(resetOverlayState, hideOverlayFns));
-
-  console.log('[HoverComp Dev Inspector] Content script loaded');
 }
 
 // Start when DOM is ready
@@ -98,6 +105,36 @@ if (document.readyState === 'loading') {
   init();
 }
 
+// Cleanup function for extension unload
+function cleanup() {
+  // Clean up framework observer
+  if (state.frameworkObserver) {
+    state.frameworkObserver.disconnect();
+    state.frameworkObserver = null;
+  }
+  
+  // Clear all timeouts
+  if (state.observerInitTimeout) {
+    clearTimeout(state.observerInitTimeout);
+    state.observerInitTimeout = null;
+  }
+  if (state.observerCleanupTimeout) {
+    clearTimeout(state.observerCleanupTimeout);
+    state.observerCleanupTimeout = null;
+  }
+  
+  // Hide all overlays
+  hideOverlay();
+  hideReactOverlay();
+  hideVueOverlay();
+  
+  // Remove all overlay elements from DOM
+  cleanupAllOverlays();
+}
+
+// Listen for extension unload
+window.addEventListener('beforeunload', cleanup);
+
 // Export for testing
-export { updateOverlayWrapper as updateOverlay, toggleEnabled, handleMouseMove };
+export { updateOverlayWrapper as updateOverlay, toggleEnabled, handleMouseMove, cleanup };
 

@@ -1,106 +1,106 @@
-# Chrome Web Store 배포 가이드
+# Chrome Web Store Publishing Guide
 
-> 📅 **최신 업데이트**: 2025년 12월 22일 기준 Chrome Web Store API 공식 문서 반영
+> 📅 **Last Updated**: Based on Chrome Web Store API official documentation as of December 22, 2025
 
-## 자동 배포 설정
+## Automated Deployment Setup
 
-이 프로젝트는 GitHub Actions를 통해 Chrome Web Store에 자동으로 배포됩니다.
+This project is automatically deployed to the Chrome Web Store via GitHub Actions.
 
-## 초기 설정 (한 번만 필요)
+## Initial Setup (Required Once)
 
-### 1. Google Cloud Console 설정
+### 1. Google Cloud Console Setup
 
-#### 1-1. Chrome Web Store API 활성화
+#### 1-1. Enable Chrome Web Store API
 
-1. [Google Cloud Console](https://console.cloud.google.com/)에 접속
-2. 새 프로젝트 생성 또는 기존 프로젝트 선택
-3. 검색창에 "Chrome Web Store API" 입력
-4. "Chrome Web Store API" 활성화
+1. Access [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing project
+3. Enter "Chrome Web Store API" in the search bar
+4. Enable "Chrome Web Store API"
 
-#### 1-2. OAuth Consent Screen 구성
+#### 1-2. Configure OAuth Consent Screen
 
-1. "OAuth consent screen" 메뉴로 이동
-2. User Type: **External** 선택 → Create
-3. 필수 정보 입력:
-   - App name: 원하는 이름 (예: "HoverComp Publisher")
-   - User support email: 본인 이메일
-   - Developer contact information: 본인 이메일
-4. "Save and Continue" 클릭
-5. Scopes 화면은 건너뛰기 (Save and Continue)
-6. Test users에 본인 이메일 추가 → Save and Continue
+1. Navigate to "OAuth consent screen" menu
+2. Select User Type: **External** → Create
+3. Enter required information:
+   - App name: Choose a name (e.g., "HoverComp Publisher")
+   - User support email: Your email
+   - Developer contact information: Your email
+4. Click "Save and Continue"
+5. Skip the Scopes screen (Save and Continue)
+6. Add your email to Test users → Save and Continue
 
-#### 1-3. OAuth Client 생성
+#### 1-3. Create OAuth Client
 
-1. "Credentials" 메뉴로 이동
-2. "Create Credentials" → "OAuth client ID" 선택
-3. Application type: **"Web application"** 선택
-4. 이름 입력 (예: "Chrome Web Store Publisher")
-5. Authorized redirect URIs에 추가:
+1. Navigate to "Credentials" menu
+2. Select "Create Credentials" → "OAuth client ID"
+3. Select Application type: **"Web application"**
+4. Enter a name (e.g., "Chrome Web Store Publisher")
+5. Add to Authorized redirect URIs:
    - `https://developers.google.com/oauthplayground`
-6. "Create" 클릭
-7. **Client ID와 Client Secret 복사 및 안전하게 보관**
+6. Click "Create"
+7. **Copy and securely store the Client ID and Client Secret**
 
-> ⚠️ **중요**:
+> ⚠️ **Important**:
 >
-> - 공식 문서에 따르면 **"Web application"** 타입 사용 (2025년 12월 기준)
-> - Client Secret은 생성 시점에만 전체 값을 볼 수 있습니다
+> - According to official documentation, use **"Web application"** type (as of December 2025)
+> - Client Secret can only be viewed in full at the time of creation
 
-### 2. Access Token & Refresh Token 생성
+### 2. Generate Access Token & Refresh Token
 
-#### OAuth 2.0 Playground 사용 (공식 권장 방법)
+#### Using OAuth 2.0 Playground (Official Recommended Method)
 
-1. [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) 접속
+1. Access [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/)
 
-2. **설정 구성** (오른쪽 상단 ⚙️ 클릭):
-   - ✅ "Use your own OAuth credentials" 체크
-   - OAuth Client ID 입력
-   - OAuth Client secret 입력
+2. **Configure Settings** (Click ⚙️ in the top right):
+   - ✅ Check "Use your own OAuth credentials"
+   - Enter OAuth Client ID
+   - Enter OAuth Client secret
 
 3. **Step 1 - Authorize APIs**:
-   - "Input your own scopes" 필드에 입력:
+   - Enter in "Input your own scopes" field:
      ```
      https://www.googleapis.com/auth/chromewebstore
      ```
-   - "Authorize APIs" 클릭
-   - Google 계정으로 로그인 및 권한 승인
+   - Click "Authorize APIs"
+   - Sign in with Google account and approve permissions
 
 4. **Step 2 - Exchange authorization code for tokens**:
-   - "Exchange authorization code for tokens" 클릭
-   - **Refresh token 복사** (재사용 가능)
-   - Access token도 표시됨 (1시간 유효)
+   - Click "Exchange authorization code for tokens"
+   - **Copy Refresh token** (reusable)
+   - Access token is also displayed (valid for 1 hour)
 
-> 💡 **팁**: Refresh token은 영구적으로 사용 가능합니다. Access token은 만료되면 Refresh token으로 재생성할 수 있습니다.
+> 💡 **Tip**: The Refresh token is permanently usable. When the Access token expires, it can be regenerated using the Refresh token.
 
-### 3. Chrome Extension ID 확인
+### 3. Verify Chrome Extension ID
 
-1. [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) 접속
-2. "Add new item" 클릭 → ZIP 파일 업로드
-3. Store listing 정보 입력 (Privacy 탭 필수)
-4. URL에서 Extension ID 확인: `...detail/YOUR_EXTENSION_ID/...`
+1. Access [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
+2. Click "Add new item" → Upload ZIP file
+3. Enter Store listing information (Privacy tab required)
+4. Check Extension ID from URL: `...detail/YOUR_EXTENSION_ID/...`
 
-> 📝 Extension ID는 32자 소문자 영문으로 자동 생성됩니다
+> 📝 Extension ID is automatically generated as 32 lowercase letters
 
-### 4. GitHub Secrets 설정
+### 4. Configure GitHub Secrets
 
-GitHub 저장소의 Settings → Secrets and variables → Actions에서 다음 Secrets을 추가:
+Add the following Secrets in your GitHub repository's Settings → Secrets and variables → Actions:
 
-- `CHROME_EXTENSION_ID`: 확장 프로그램 ID
+- `CHROME_EXTENSION_ID`: Extension ID
 - `CHROME_CLIENT_ID`: OAuth Client ID
 - `CHROME_CLIENT_SECRET`: OAuth Client Secret
-- `CHROME_REFRESH_TOKEN`: 생성한 Refresh Token
+- `CHROME_REFRESH_TOKEN`: Generated Refresh Token
 
-## 배포 방법
+## Deployment Methods
 
-### 자동 배포 (권장)
+### Automated Deployment (Recommended)
 
-1. 버전 업데이트:
+1. Update version:
 
    ```bash
-   # package.json과 manifest.json의 version을 동일하게 변경
-   npm version patch  # 또는 minor, major
+   # Change the version in both package.json and manifest.json to be identical
+   npm version patch  # or minor, major
    ```
 
-2. 태그로 배포:
+2. Deploy with tag:
 
    ```bash
    git add .
@@ -109,57 +109,57 @@ GitHub 저장소의 Settings → Secrets and variables → Actions에서 다음 
    git push origin main --tags
    ```
 
-3. GitHub Actions가 자동으로:
-   - 테스트 실행
-   - 확장 프로그램 패키징
-   - Chrome Web Store에 업로드 및 배포
-   - GitHub Release 생성
+3. GitHub Actions automatically:
+   - Runs tests
+   - Packages the extension
+   - Uploads and publishes to Chrome Web Store
+   - Creates GitHub Release
 
-### 수동 배포
+### Manual Deployment
 
-GitHub Actions 페이지에서 "Publish to Chrome Web Store" workflow를 수동으로 실행할 수 있습니다.
+You can manually run the "Publish to Chrome Web Store" workflow from the GitHub Actions page.
 
-## 버전 관리
+## Version Management
 
-- `manifest.json`과 `package.json`의 버전은 항상 동일해야 합니다
-- 테스트 workflow가 자동으로 버전 일치를 확인합니다
-- Semantic Versioning을 따릅니다: `MAJOR.MINOR.PATCH`
+- The versions in `manifest.json` and `package.json` must always be identical
+- The test workflow automatically verifies version consistency
+- Follows Semantic Versioning: `MAJOR.MINOR.PATCH`
 
-## 워크플로우
+## Workflows
 
 ### Test Workflow (`.github/workflows/test.yml`)
 
-- main, develop 브랜치 push 시 자동 실행
-- Pull Request 시 자동 실행
-- Lint, 테스트, 버전 검증 수행
+- Automatically runs on push to main, develop branches
+- Automatically runs on Pull Requests
+- Performs lint, tests, and version verification
 
 ### Publish Workflow (`.github/workflows/publish.yml`)
 
-- `v*` 태그 push 시 자동 실행
-- 수동 실행 가능
-- 테스트 → 패키징 → 배포 → Release 생성
+- Automatically runs on `v*` tag push
+- Can be run manually
+- Test → Package → Deploy → Create Release
 
-## 문제 해결
+## Troubleshooting
 
-### "Invalid refresh token" 오류
+### "Invalid refresh token" error
 
-- Refresh Token을 다시 생성하고 GitHub Secrets 업데이트
+- Regenerate the Refresh Token and update GitHub Secrets
 
-### "Extension ID not found" 오류
+### "Extension ID not found" error
 
-- Chrome Web Store에서 Extension ID를 확인하고 Secrets 업데이트
+- Verify the Extension ID in Chrome Web Store and update Secrets
 
-### 버전 불일치 오류
+### Version mismatch error
 
-- `manifest.json`과 `package.json`의 version 값을 동일하게 수정
+- Make the version values in `manifest.json` and `package.json` identical
 
-## 참고 자료
+## References
 
-- [Chrome Web Store API 공식 문서](https://developer.chrome.com/docs/webstore/using-api) (2025-12-22 업데이트)
+- [Chrome Web Store API Official Documentation](https://developer.chrome.com/docs/webstore/using-api) (Updated 2025-12-22)
 - [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/)
-- [GitHub Actions 문서](https://docs.github.com/en/actions)
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [chrome-extension-upload Action](https://github.com/mnao305/chrome-extension-upload)
 
 ---
 
-**✅ 검증 완료**: 이 가이드는 Chrome Web Store API 공식 문서 (Last updated 2025-12-22 UTC)를 기반으로 작성되었습니다.
+**✅ Verified**: This guide is based on the Chrome Web Store API official documentation (Last updated 2025-12-22 UTC).

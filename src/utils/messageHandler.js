@@ -3,7 +3,8 @@
  */
 
 import { MESSAGE_TYPES } from '../config/constants.js';
-import { getXPath, findElementByXPath } from './domHelpers.js';
+import { getXPath } from './domHelpers.js';
+import { trackStateChange, trackPropsChange } from './stateTracker.js';
 
 /**
  * Create a message handler for the content script
@@ -15,7 +16,7 @@ export function createContentMessageHandler(updateOverlayCallback, getCurrentTar
   return function handleMessage(event) {
     if (event.source !== window) return;
 
-    const { type, data } = event.data;
+    const { type } = event.data;
 
     switch (type) {
       case MESSAGE_TYPES.COMPONENT_INFO_RESPONSE:
@@ -23,12 +24,11 @@ export function createContentMessageHandler(updateOverlayCallback, getCurrentTar
         break;
 
       case MESSAGE_TYPES.UPDATE_SUCCESS:
-        console.log('[HoverComp] Value updated successfully');
         refreshOverlay(getCurrentTarget);
         break;
 
       case MESSAGE_TYPES.UPDATE_ERROR:
-        console.error('[HoverComp] Update failed:', event.data.error);
+        // Silent fail - error details are logged in inpage.js
         break;
     }
   };
@@ -46,6 +46,17 @@ function handleComponentInfoResponse(
   if (currentTarget) {
     const mouseX = currentTarget._mouseX || null;
     const mouseY = currentTarget._mouseY || null;
+    
+    // Track state and props changes
+    if (componentInfo) {
+      if (componentInfo.state) {
+        trackStateChange(currentTarget, componentInfo.state);
+      }
+      if (componentInfo.props) {
+        trackPropsChange(currentTarget, componentInfo.props);
+      }
+    }
+    
     updateOverlayCallback(currentTarget, componentInfo, mouseX, mouseY, reactComponentXPath);
   }
 }
@@ -76,7 +87,15 @@ export function postMessage(type, data = {}) {
  * @param {string} inspectionMode - Inspection mode ('auto', 'react', 'html', etc.)
  */
 export function requestComponentInfo(element, inspectionMode = 'auto') {
+  if (!element) {
+    return;
+  }
+  
   const xpath = getXPath(element);
+  if (!xpath) {
+    return;
+  }
+  
   postMessage(MESSAGE_TYPES.GET_COMPONENT_INFO, { targetPath: xpath, inspectionMode });
 }
 
@@ -85,7 +104,11 @@ export function requestComponentInfo(element, inspectionMode = 'auto') {
  * @param {HTMLElement} element - Target element
  */
 export function invalidateCache(element) {
+  if (!element) return;
+  
   const xpath = getXPath(element);
+  if (!xpath) return;
+  
   postMessage(MESSAGE_TYPES.INVALIDATE_CACHE, { targetPath: xpath });
 }
 
@@ -96,7 +119,11 @@ export function invalidateCache(element) {
  * @param {*} newValue - New value
  */
 export function updateHook(element, hookIndex, newValue) {
+  if (!element) return;
+  
   const xpath = getXPath(element);
+  if (!xpath) return;
+  
   postMessage(MESSAGE_TYPES.UPDATE_HOOK, { targetPath: xpath, hookIndex, newValue });
 }
 
@@ -107,6 +134,10 @@ export function updateHook(element, hookIndex, newValue) {
  * @param {*} newValue - New value
  */
 export function updateState(element, stateKey, newValue) {
+  if (!element) return;
+  
   const xpath = getXPath(element);
+  if (!xpath) return;
+  
   postMessage(MESSAGE_TYPES.UPDATE_STATE, { targetPath: xpath, stateKey, newValue });
 }

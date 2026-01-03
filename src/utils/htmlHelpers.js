@@ -7,10 +7,15 @@ import { escapeHtml } from './domHelpers.js';
 /**
  * Get basic HTML element information (no framework detection)
  * @param {HTMLElement} element - DOM element to inspect
- * @returns {Object} HTML element information
+ * @returns {Object|null} HTML element information or null if invalid
  */
 export function getHtmlElementInfo(element) {
   if (!element || !(element instanceof HTMLElement)) {
+    return null;
+  }
+
+  // Check if element is still in the DOM
+  if (!document.body.contains(element)) {
     return null;
   }
 

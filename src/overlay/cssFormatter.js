@@ -178,7 +178,7 @@ function formatMatchedRules(matchedRules) {
   html += `<div class="${CSS_CLASSES.TOGGLE_SECTION}" style="color: #64b5f6; font-weight: bold; cursor: pointer; margin-bottom: 0px;">▶ Matched CSS Rules (${matchedRules.length})</div>`;
   html += `<div class="matched-rules-content" style="display: none; margin-top: 8px; max-height: 50vh; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(100,181,246,0.3) rgba(0,0,0,0.2);">`;
 
-  matchedRules.forEach((rule, i) => {
+  matchedRules.forEach((rule, _i) => {
     const source = rule.source === 'inline' ? 'inline' : rule.source.split('/').pop();
     html += `<div style="margin: 8px 0; padding: 6px; background: rgba(0,0,0,0.3); border-left: 2px solid #42a5f5; border-radius: 2px;">`;
     html += `<div style="color: #ffb74d; font-size: 10px; margin-bottom: 4px;">${escapeHtml(rule.selector)}</div>`;

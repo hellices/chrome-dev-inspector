@@ -40,7 +40,10 @@ export function createModeSelector(state) {
   // Remove existing selector if present
   const existing = document.getElementById('hovercomp-mode-selector');
   if (existing) {
-    existing.remove();
+    // Remove all event listeners by cloning and replacing
+    const clone = existing.cloneNode(false);
+    existing.parentNode?.replaceChild(clone, existing);
+    clone.remove();
   }
 
   const selector = document.createElement('div');
@@ -158,19 +161,31 @@ export function toggleModeSelector(state) {
 export function setupModeSelectorButtonHandler(panel, state) {
   const modeBtn = panel.querySelector('#hovercomp-mode-btn');
   if (modeBtn) {
+    // Store abort controller for cleanup
+    if (!modeBtn._abortController) {
+      modeBtn._abortController = new AbortController();
+    } else {
+      // Abort previous listeners
+      modeBtn._abortController.abort();
+      modeBtn._abortController = new AbortController();
+    }
+    
+    const signal = modeBtn._abortController.signal;
+    
     modeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleModeSelector(state);
-    });
+    }, { signal });
     
     // Hover effect
     modeBtn.addEventListener('mouseenter', () => {
       modeBtn.style.background = 'rgba(97, 218, 251, 0.2)';
       modeBtn.style.borderColor = 'rgba(97, 218, 251, 0.5)';
-    });
+    }, { signal });
+    
     modeBtn.addEventListener('mouseleave', () => {
       modeBtn.style.background = 'rgba(97, 218, 251, 0.1)';
       modeBtn.style.borderColor = 'rgba(97, 218, 251, 0.3)';
-    });
+    }, { signal });
   }
 }

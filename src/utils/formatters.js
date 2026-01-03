@@ -4,6 +4,10 @@
 
 import { escapeHtml } from './domHelpers.js';
 import { formatCSS } from '../overlay/cssFormatter.js';
+import { getLatestStateDiff, getLatestPropsDiff, formatDiff, getChangeCount } from './stateTracker.js';
+import { buildComponentTree, formatComponentTree } from './componentTree.js';
+import { detectReactContext, detectVueInject, detectSvelteContext, formatContextInfo } from './contextDetector.js';
+import { detectSvelteStores, formatSvelteStores } from './svelteStoreDetector.js';
 
 /**
  * Format a value for display in the panel
@@ -17,11 +21,23 @@ export function formatValue(value) {
     return `<span style="color: #a5d6a7;">"${escapeHtml(value)}"</span>`;
   if (typeof value === 'number') return `<span style="color: #90caf9;">${value}</span>`;
   if (typeof value === 'boolean') return `<span style="color: #ce93d8;">${value}</span>`;
-  if (Array.isArray(value)) return `<span style="color: #999;">[Array(${value.length})]</span>`;
+  if (Array.isArray(value)) {
+    try {
+      const str = JSON.stringify(value, null, 2);
+      if (str.length > 300) {
+        return `<details style="display: inline-block; vertical-align: top; max-width: 100%;"><summary style="cursor: pointer; color: #999; list-style: none; display: inline; user-select: none;"><span style="opacity: 0.8;">[...]</span> <span style="font-size: 9px; opacity: 0.5;">▼</span></summary><div style="margin: 4px 0 0 16px; padding: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; max-height: 200px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) rgba(0,0,0,0.2);"><pre style="margin: 0; color: #999; font-size: 10px; white-space: pre-wrap; word-break: break-all;">${escapeHtml(str)}</pre></div></details>`;
+      }
+      return `<span style="color: #999;">${escapeHtml(str)}</span>`;
+    } catch {
+      return `<span style="color: #999;">[Array(${value.length})]</span>`;
+    }
+  }
   if (typeof value === 'object') {
     try {
       const str = JSON.stringify(value, null, 2);
-      if (str.length > 100) return `<span style="color: #999;">{Object}</span>`;
+      if (str.length > 300) {
+        return `<details style="display: inline-block; vertical-align: top; max-width: 100%;"><summary style="cursor: pointer; color: #999; list-style: none; display: inline; user-select: none;"><span style="opacity: 0.8;">{...}</span> <span style="font-size: 9px; opacity: 0.5;">▼</span></summary><div style="margin: 4px 0 0 16px; padding: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; max-height: 200px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) rgba(0,0,0,0.2);"><pre style="margin: 0; color: #999; font-size: 10px; white-space: pre-wrap; word-break: break-all;">${escapeHtml(str)}</pre></div></details>`;
+      }
       return `<span style="color: #999;">${escapeHtml(str)}</span>`;
     } catch {
       return `<span style="color: #999;">{Object}</span>`;
@@ -34,21 +50,68 @@ export function formatValue(value) {
  * Format component information into HTML
  * @param {Object} info - Component information
  * @param {boolean} pinned - Whether panel is pinned
+ * @param {HTMLElement} element - DOM element (for tracking)
  * @returns {string} HTML string
  */
-export function formatComponentInfo(info, pinned = false) {
+export function formatComponentInfo(info, pinned = false, element) {
   if (!info) return '';
 
   let html = formatHeader(info, pinned);
+  
+  // Component tree
+  if (info.framework && element) {
+    const tree = buildComponentTree(element, info.framework, 8);
+    if (tree && tree.length > 1) {
+      html += formatComponentTree(tree, info.name);
+    }
+  }
+  
   html += formatUserComponents(info.allUserComponents);
   html += formatHierarchy(info.hierarchy);
-  html += formatProps(info.props);
-  html += formatState(info.state);
+  
+  // Context/Inject detection
+  if (element) {
+    const contexts = detectContexts(element, info.framework);
+    if (contexts.length > 0) {
+      html += formatContextInfo(contexts, info.framework);
+    }
+  }
+  
+  html += formatProps(info.props, element);
+  html += formatState(info.state, element);
   html += formatHooks(info.hooks);
+  
+  // Svelte stores
+  if (info.framework && info.framework.toLowerCase().includes('svelte') && element) {
+    const storesInfo = detectSvelteStores(element);
+    if (storesInfo.hasStores) {
+      html += formatSvelteStores(storesInfo);
+    }
+  }
+  
   html += formatCSSSection(info.css);
   html += formatFooter(pinned);
 
   return html;
+}
+
+/**
+ * Detect contexts based on framework
+ */
+function detectContexts(element, framework) {
+  if (!element || !framework) return [];
+  
+  const fw = framework.toLowerCase();
+  
+  if (fw.includes('react')) {
+    return detectReactContext(element);
+  } else if (fw.includes('vue')) {
+    return detectVueInject(element);
+  } else if (fw.includes('svelte')) {
+    return detectSvelteContext(element);
+  }
+  
+  return [];
 }
 
 /**
@@ -143,14 +206,31 @@ function formatHierarchy(hierarchy) {
 /**
  * Format props section
  */
-function formatProps(props) {
+function formatProps(props, element = null) {
   if (!props || Object.keys(props).length === 0) return '';
 
   const propsKeys = Object.keys(props).filter((k) => k !== 'children');
   if (propsKeys.length === 0) return '';
+  
+  // Get change count
+  let changeInfo = '';
+  if (element) {
+    const changes = getChangeCount(element);
+    if (changes.propsChanges > 0) {
+      changeInfo = ` <span style="background: #ff9800; color: white; padding: 1px 4px; border-radius: 2px; font-size: 8px;">${changes.propsChanges} changes</span>`;
+    }
+  }
 
-  let html = `<div class="toggle-section" style="color: #ffa726; margin-top: 12px; font-weight: bold; padding: 6px 0; border-bottom: 1px solid rgba(255,167,38,0.3); cursor: pointer;">▶ Props (${propsKeys.length}) 🔒</div>`;
+  let html = `<div class="toggle-section" style="color: #ffa726; margin-top: 12px; font-weight: bold; padding: 6px 0; border-bottom: 1px solid rgba(255,167,38,0.3); cursor: pointer;">▶ Props (${propsKeys.length}) 🔒${changeInfo}</div>`;
   html += `<div style="margin-left: 0; margin-top: 8px; font-size: 10px; display: none;">`;
+  
+  // Show diff if available
+  if (element) {
+    const diff = getLatestPropsDiff(element);
+    if (diff) {
+      html += formatDiff(diff);
+    }
+  }
 
   propsKeys.forEach((key) => {
     const value = formatValue(props[key]);
@@ -168,12 +248,30 @@ function formatProps(props) {
 /**
  * Format state section
  */
-function formatState(state) {
+function formatState(state, element = null) {
   if (!state || typeof state !== 'object' || Object.keys(state).length === 0) return '';
 
   const stateKeys = Object.keys(state);
-  let html = `<div class="toggle-section" style="color: #ab47bc; margin-top: 12px; font-weight: bold; padding: 6px 0; border-bottom: 1px solid rgba(171,71,188,0.3); cursor: pointer;">▶ State (${stateKeys.length}) ✏️</div>`;
+  
+  // Get change count
+  let changeInfo = '';
+  if (element) {
+    const changes = getChangeCount(element);
+    if (changes.stateChanges > 0) {
+      changeInfo = ` <span style="background: #ab47bc; color: white; padding: 1px 4px; border-radius: 2px; font-size: 8px;">${changes.stateChanges} changes</span>`;
+    }
+  }
+  
+  let html = `<div class="toggle-section" style="color: #ab47bc; margin-top: 12px; font-weight: bold; padding: 6px 0; border-bottom: 1px solid rgba(171,71,188,0.3); cursor: pointer;">▶ State (${stateKeys.length}) ✏️${changeInfo}</div>`;
   html += `<div style="margin-left: 0; margin-top: 8px; font-size: 10px; display: none;">`;
+  
+  // Show diff if available
+  if (element) {
+    const diff = getLatestStateDiff(element);
+    if (diff) {
+      html += formatDiff(diff);
+    }
+  }
 
   stateKeys.forEach((key) => {
     let displayValue = formatStateValue(state[key]);

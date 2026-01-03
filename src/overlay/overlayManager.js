@@ -15,6 +15,16 @@ import {
  * @returns {HTMLElement} Overlay element
  */
 export function createOverlay() {
+  // Check if overlay already exists
+  const existingOverlay = document.getElementById('hovercomp-overlay');
+  if (existingOverlay) {
+    return existingOverlay;
+  }
+  
+  if (!document.body) {
+    return null;
+  }
+  
   const div = document.createElement('div');
   div.id = 'hovercomp-overlay';
   div.className = CSS_CLASSES.OVERLAY;
@@ -30,7 +40,14 @@ export function createOverlay() {
 
   const panel = createPanel();
   div.appendChild(panel);
-  document.body.appendChild(div);
+  
+  // Use try-catch to prevent errors if body is not available
+  try {
+    document.body.appendChild(div);
+  } catch (e) {
+    console.error('Failed to append overlay to body:', e);
+    return null;
+  }
 
   return div;
 }
@@ -38,7 +55,7 @@ export function createOverlay() {
 /**
  * Create framework-specific overlay element (lighter, no panel)
  * @param {string} type - Type of overlay ('react' or 'vue')
- * @returns {HTMLElement} Framework overlay element
+ * @returns {HTMLElement|null} Framework overlay element
  */
 function createFrameworkOverlay(type) {
   const config = {
@@ -56,7 +73,22 @@ function createFrameworkOverlay(type) {
     },
   };
 
-  const { id, className, background, border } = config[type];
+  const typeConfig = config[type];
+  if (!typeConfig) {
+    return null;
+  }
+
+  // Check if overlay already exists
+  const existingOverlay = document.getElementById(typeConfig.id);
+  if (existingOverlay) {
+    return existingOverlay;
+  }
+
+  if (!document.body) {
+    return null;
+  }
+
+  const { id, className, background, border } = typeConfig;
   const div = document.createElement('div');
   div.id = id;
   div.className = className;
@@ -69,8 +101,15 @@ function createFrameworkOverlay(type) {
     border: ${border};
     box-sizing: border-box;
   `;
-  document.body.appendChild(div);
-
+  
+  // Use try-catch to prevent errors if body is not available
+  try {
+    document.body.appendChild(div);
+  } catch (e) {
+    console.error('Failed to append framework overlay to body:', e);
+    return null;
+  }
+  
   return div;
 }
 
@@ -165,17 +204,6 @@ export function showComponentOverlay(componentOverlay, element) {
 
 // Deprecated: Use showComponentOverlay instead
 export function showVueOverlay(vueOverlay, element) {
-  // Only log warning in development (build script removes console statements in production)
-  if (
-    typeof process !== 'undefined' &&
-    process.env &&
-    process.env.NODE_ENV !== 'production'
-  ) {
-    console.warn(
-      'showVueOverlay is deprecated and will be removed in a future version. ' +
-      'Use showComponentOverlay instead.'
-    );
-  }
   showComponentOverlay(vueOverlay, element);
 }
 
@@ -209,4 +237,28 @@ export function updatePanelContent(panel, html) {
   if (panel) {
     panel.innerHTML = html;
   }
+}
+
+/**
+ * Cleanup all overlays and remove from DOM
+ */
+export function cleanupAllOverlays() {
+  const overlayIds = [
+    'hovercomp-overlay',
+    'hovercomp-react-overlay',
+    'hovercomp-vue-overlay',
+    'hovercomp-mode-selector',
+  ];
+  
+  overlayIds.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      // Remove all event listeners by cloning
+      const clone = element.cloneNode(false);
+      if (element.parentNode) {
+        element.parentNode.replaceChild(clone, element);
+        clone.remove();
+      }
+    }
+  });
 }
