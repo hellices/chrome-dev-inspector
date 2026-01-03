@@ -1,6 +1,6 @@
 {
   "name": "hovercomp-dev-inspector",
-  "version": "2.0.0",
+  "version": "1.0.5",
   "description": "Chrome extension for inspecting framework components on hover with advanced tracking and profiling",
   "scripts": {
     "test": "jest",
