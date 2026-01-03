@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
   "name": "HoverComp Dev Inspector",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Hover-based component inspector with performance profiling and advanced tracking for React, Vue, and Svelte",
-  "permissions": [],
+  "permissions": ["activeTab"],
   "host_permissions": [
-    "<all_urls>"
+    "http://*/*",
+    "https://*/*"
   ],
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["http://*/*", "https://*/*"],
       "js": ["src/content-loader.js"],
       "css": ["styles/overlay.css"],
       "run_at": "document_end",
@@ -52,7 +53,7 @@
         "src/overlay/advancedHandlers.js",
         "src/overlay/cssFormatter.js"
       ],
-      "matches": ["<all_urls>"]
+      "matches": ["http://*/*", "https://*/*"]
     }
   ],
   "icons": {
