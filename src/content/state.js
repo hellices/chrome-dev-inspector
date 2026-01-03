@@ -19,6 +19,9 @@ export const state = {
   inspectionMode: 'auto', // 'auto', 'react', 'html', 'vue', etc.
   detectedFrameworks: [], // List of detected frameworks on the page
   detectedFrameworksFromInpage: new Set(), // Frameworks detected by inpage.js (from actual components)
+  frameworkObserver: null, // MutationObserver for framework detection
+  observerInitTimeout: null, // Timeout ID for observer initialization
+  observerCleanupTimeout: null, // Timeout ID for observer cleanup
 };
 
 /**

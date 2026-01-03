@@ -2,8 +2,6 @@
  * Module exports validation tests
  */
 
-const path = require('path');
-
 describe('Module Exports', () => {
   test('constants module exports required values', () => {
     const constants = require('../src/config/constants.js');

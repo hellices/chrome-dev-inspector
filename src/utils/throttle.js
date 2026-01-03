@@ -16,7 +16,7 @@ export function throttle(func, wait) {
   let timeout = null;
   let lastRan = null;
 
-  return function throttled(...args) {
+  const throttled = function throttled(...args) {
     const context = this;
 
     if (!lastRan) {
@@ -35,6 +35,17 @@ export function throttle(func, wait) {
       );
     }
   };
+  
+  // Add cancel method to cleanup timeouts
+  throttled.cancel = function() {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+    lastRan = null;
+  };
+  
+  return throttled;
 }
 
 /**
@@ -54,11 +65,21 @@ export function throttle(func, wait) {
 export function debounce(func, wait) {
   let timeout = null;
 
-  return function debounced(...args) {
+  const debounced = function debounced(...args) {
     const context = this;
     clearTimeout(timeout);
     timeout = setTimeout(() => func.apply(context, args), wait);
   };
+  
+  // Add cancel method to cleanup timeouts
+  debounced.cancel = function() {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+  };
+  
+  return debounced;
 }
 
 // Export for Node.js environment (tests)

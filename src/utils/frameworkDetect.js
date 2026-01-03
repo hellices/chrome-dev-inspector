@@ -3,17 +3,9 @@
  * Refactored to use helper modules for better maintainability
  */
 
-import {
-  isFromUserCode,
-  isFromNodeModules,
-  isKnownFrameworkComponent,
-  hasFrameworkPattern as hasFrameworkPatternCheck,
-  calculateComponentScore,
-  isUserComponent as checkIsUserComponent,
-  extractHooks,
-  sanitizeValue,
-  sanitizeProps,
-} from './reactHelpers.js';
+// React helpers are imported but used dynamically in framework detection logic
+// eslint-disable-next-line no-unused-vars
+import * as reactHelpers from './reactHelpers.js';
 
 import {
   isKnownFrameworkComponent as isKnownFrameworkComponentVue,

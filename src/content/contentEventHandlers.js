@@ -14,7 +14,7 @@ let panelPositionTimeout = null;
 /**
  * Handle mouse move event
  */
-export function handleMouseMove(event, state, hideOverlayFns) {
+export function handleMouseMove(event, state, _hideOverlayFns) {
   if (!state.isEnabled || state.isPinned) return;
 
   const mouseX = event.clientX;

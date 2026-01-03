@@ -4,7 +4,6 @@
 
 import { CSS_CLASSES } from '../config/constants.js';
 import { getAllCSSProperties, getCommonCSSValues } from '../utils/cssHelper.js';
-import { escapeHtml } from '../utils/domHelpers.js';
 
 /**
  * Create simple text input

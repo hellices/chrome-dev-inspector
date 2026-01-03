@@ -5,7 +5,7 @@
 
 import { injectScript } from './utils/domHelpers.js';
 import { createContentMessageHandler, requestComponentInfo } from './utils/messageHandler.js';
-import { hideOverlay, hideReactOverlay, hideVueOverlay } from './overlay/overlayManager.js';
+import { hideOverlay, hideReactOverlay, hideVueOverlay, cleanupAllOverlays } from './overlay/overlayManager.js';
 import { state, resetOverlayState, toggleEnabled } from './content/state.js';
 import {
   updateDetectedFrameworksState,
@@ -63,29 +63,29 @@ function init() {
   }, 3000);
   
   // Re-detect on DOM changes (for SPAs)
-  let observer = null;
-  
   // Start observing after initial load
-  setTimeout(() => {
-    if (!observer && document.body) {
-      observer = new MutationObserver(() => {
+  const observerTimeout = setTimeout(() => {
+    if (!state.frameworkObserver && document.body) {
+      state.frameworkObserver = new MutationObserver(() => {
         updateDetectedFrameworksState(state);
       });
       
-      observer.observe(document.body, { 
+      state.frameworkObserver.observe(document.body, { 
         childList: true, 
         subtree: true 
       });
       
       // Stop observing after 60 seconds to avoid performance issues while still supporting SPAs
-      setTimeout(() => {
-        if (observer) {
-          observer.disconnect();
-          observer = null;
+      state.observerCleanupTimeout = setTimeout(() => {
+        if (state.frameworkObserver) {
+          state.frameworkObserver.disconnect();
+          state.frameworkObserver = null;
         }
       }, 60000);
     }
   }, 500);
+  
+  state.observerInitTimeout = observerTimeout;
 
   // Setup event listeners with proper bindings
   document.addEventListener('mousemove', (e) => handleMouseMove(e, state, hideOverlayFns), true);
@@ -107,11 +107,33 @@ if (document.readyState === 'loading') {
 
 // Cleanup function for extension unload
 function cleanup() {
-  if (observer) {
-    observer.disconnect();
-    observer = null;
+  // Clean up framework observer
+  if (state.frameworkObserver) {
+    state.frameworkObserver.disconnect();
+    state.frameworkObserver = null;
   }
+  
+  // Clear all timeouts
+  if (state.observerInitTimeout) {
+    clearTimeout(state.observerInitTimeout);
+    state.observerInitTimeout = null;
+  }
+  if (state.observerCleanupTimeout) {
+    clearTimeout(state.observerCleanupTimeout);
+    state.observerCleanupTimeout = null;
+  }
+  
+  // Hide all overlays
+  hideOverlay();
+  hideReactOverlay();
+  hideVueOverlay();
+  
+  // Remove all overlay elements from DOM
+  cleanupAllOverlays();
 }
+
+// Listen for extension unload
+window.addEventListener('beforeunload', cleanup);
 
 // Export for testing
 export { updateOverlayWrapper as updateOverlay, toggleEnabled, handleMouseMove, cleanup };

@@ -133,7 +133,7 @@ export function updateOverlay(element, componentInfo, mouseX, mouseY, reactCompo
         }
 
         // Update content with HTML mode formatter
-        const html = formatHtmlElementInfo(htmlInfo, state.isPinned);
+        const html = formatHtmlElementInfo(htmlInfo, state.isPinned, element);
         updatePanelContent(panel, html);
 
         // Setup event handlers
@@ -169,7 +169,7 @@ export function updateOverlay(element, componentInfo, mouseX, mouseY, reactCompo
           // Show appropriate note based on detected frameworks
           const frameworkNote = getFrameworkNote(state.detectedFrameworks);
           
-          const html = frameworkNote + formatHtmlElementInfo(htmlInfo, state.isPinned);
+          const html = frameworkNote + formatHtmlElementInfo(htmlInfo, state.isPinned, element);
           updatePanelContent(panel, html);
 
           // Setup event handlers
@@ -230,8 +230,8 @@ export function updateOverlay(element, componentInfo, mouseX, mouseY, reactCompo
     setTimeout(() => adjustPanelPosition(panel), 50);
   }
 
-  // Update content
-  const html = formatComponentInfo(componentInfo, state.isPinned);
+  // Update content (pass element for tracking)
+  const html = formatComponentInfo(componentInfo, state.isPinned, element);
   updatePanelContent(panel, html);
 
   // Setup event handlers

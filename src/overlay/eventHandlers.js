@@ -3,10 +3,7 @@
  */
 
 import { CSS_CLASSES } from '../config/constants.js';
-import { getXPath } from '../utils/domHelpers.js';
 import {
-  invalidateCache,
-  requestComponentInfo,
   updateHook,
   updateState,
 } from '../utils/messageHandler.js';
@@ -39,7 +36,7 @@ function setupEditableElementHandlers(editableElement, originalValue, config) {
     selectAllText(editableElement);
   };
 
-  editableElement.onblur = (e) => {
+  editableElement.onblur = (_e) => {
     Object.assign(editableElement.style, blurStyles);
 
     const newValue = editableElement.textContent.trim();
@@ -262,7 +259,6 @@ export function setupComputedStyleHandlers(panel, element) {
       item.onclick = (e) => {
         e.stopPropagation();
         const styleProp = item.getAttribute('data-style-prop');
-        const styleValue = item.getAttribute('data-style-value');
         const isActive = item.getAttribute('data-active') === 'true';
 
         if (isActive) {
@@ -412,7 +408,7 @@ export function setupEditableTextContentHandler(panel, element) {
     textContentDiv.style.outline = '2px solid #81c784';
   };
 
-  textContentDiv.onblur = (e) => {
+  textContentDiv.onblur = (_e) => {
     textContentDiv.setAttribute('contenteditable', 'false');
     textContentDiv.style.background = 'rgba(0,0,0,0.3)';
     textContentDiv.style.outline = 'none';
@@ -464,7 +460,7 @@ export function setupEditableAttributeHandlers(panel, element, refreshOverlay) {
       attrDiv.style.outline = '2px solid #ffa726';
     };
 
-    attrDiv.onblur = (e) => {
+    attrDiv.onblur = (_e) => {
       attrDiv.setAttribute('contenteditable', 'false');
       attrDiv.style.background = 'transparent';
       attrDiv.style.outline = 'none';

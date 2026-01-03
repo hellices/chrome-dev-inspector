@@ -1,13 +1,25 @@
 name: Publish to Chrome Web Store
 
+# Minimal permissions for enhanced security
+permissions:
+  contents: write
+  id-token: write
+
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip publishing)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
-  publish:
+  # Separate build job for improved reusability
+  build:
     runs-on: ubuntu-latest
     
     steps:
@@ -17,7 +29,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -25,6 +37,9 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Run linter
+        run: npm run lint
 
       - name: Build extension
         run: npm run build
@@ -46,19 +61,66 @@ jobs:
             fi
           done
           
-          echo "Build validation successful - all required files present"
+          echo "✅ Build validation successful - all required files present"
+
+      - name: Verify version consistency
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          MANIFEST_VERSION=$(node -p "require('./dist/manifest.json').version")
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          
+          if [ "$PACKAGE_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Error: Version mismatch between package.json ($PACKAGE_VERSION) and manifest.json ($MANIFEST_VERSION)"
+            exit 1
+          fi
+          
+          if [ -n "$TAG_VERSION" ] && [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: Version mismatch between package.json ($PACKAGE_VERSION) and git tag ($TAG_VERSION)"
+            exit 1
+          fi
+          
+          echo "✅ Version consistency verified: v$PACKAGE_VERSION"
 
       - name: Create extension package
         run: |
           cd dist
           zip -r ../extension.zip .
           cd ..
+          
+          # Check package size
+          SIZE=$(stat -f%z "extension.zip" 2>/dev/null || stat -c%s "extension.zip")
+          echo "Package size: $(echo "scale=2; $SIZE/1024/1024" | bc) MB"
+          
+          # Check Chrome Web Store size limit (128MB)
+          MAX_SIZE=$((128 * 1024 * 1024))
+          if [ $SIZE -gt $MAX_SIZE ]; then
+            echo "Error: Package size exceeds Chrome Web Store limit (128MB)"
+            exit 1
+          fi
 
       - name: Upload extension artifact
         uses: actions/upload-artifact@v4
         with:
-          name: chrome-extension
+          name: chrome-extension-${{ github.sha }}
           path: extension.zip
+          retention-days: 30
+          compression-level: 0  # Already compressed as zip
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
+    
+    # Production environment protection
+    environment:
+      name: production
+      url: https://chrome.google.com/webstore/category/extensions
+    
+    steps:
+      - name: Download extension artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: chrome-extension-${{ github.sha }}
 
       - name: Publish to Chrome Web Store
         uses: mnao305/chrome-extension-upload@v5.0.0
@@ -69,12 +131,29 @@ jobs:
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
           publish: true
+        timeout-minutes: 10
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: extension.zip
           generate_release_notes: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify success
+        if: success()
+        run: |
+          echo "✅ Successfully published extension!"
+          echo "Tag: ${GITHUB_REF#refs/tags/}"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ Publication failed!"
+          echo "Check the logs above for details"
+          exit 1

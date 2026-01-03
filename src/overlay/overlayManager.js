@@ -40,7 +40,14 @@ export function createOverlay() {
 
   const panel = createPanel();
   div.appendChild(panel);
-  document.body.appendChild(div);
+  
+  // Use try-catch to prevent errors if body is not available
+  try {
+    document.body.appendChild(div);
+  } catch (e) {
+    console.error('Failed to append overlay to body:', e);
+    return null;
+  }
 
   return div;
 }
@@ -95,7 +102,14 @@ function createFrameworkOverlay(type) {
     box-sizing: border-box;
   `;
   
-  document.body.appendChild(div);
+  // Use try-catch to prevent errors if body is not available
+  try {
+    document.body.appendChild(div);
+  } catch (e) {
+    console.error('Failed to append framework overlay to body:', e);
+    return null;
+  }
+  
   return div;
 }
 
@@ -223,4 +237,28 @@ export function updatePanelContent(panel, html) {
   if (panel) {
     panel.innerHTML = html;
   }
+}
+
+/**
+ * Cleanup all overlays and remove from DOM
+ */
+export function cleanupAllOverlays() {
+  const overlayIds = [
+    'hovercomp-overlay',
+    'hovercomp-react-overlay',
+    'hovercomp-vue-overlay',
+    'hovercomp-mode-selector',
+  ];
+  
+  overlayIds.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      // Remove all event listeners by cloning
+      const clone = element.cloneNode(false);
+      if (element.parentNode) {
+        element.parentNode.replaceChild(clone, element);
+        clone.remove();
+      }
+    }
+  });
 }

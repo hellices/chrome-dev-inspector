@@ -21,7 +21,6 @@
         // detect React components via the fiber properties (__reactFiber or __reactInternalInstance).
         // This allows the extension to work on production sites, though with potentially
         // less accurate user component detection due to missing source metadata.
-        const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
 
         // 2. Find Fiber - __reactFiber or __reactInternalInstance
         const fiberKey = Object.keys(node).find((key) => 

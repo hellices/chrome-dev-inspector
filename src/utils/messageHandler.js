@@ -3,7 +3,8 @@
  */
 
 import { MESSAGE_TYPES } from '../config/constants.js';
-import { getXPath, findElementByXPath } from './domHelpers.js';
+import { getXPath } from './domHelpers.js';
+import { trackStateChange, trackPropsChange } from './stateTracker.js';
 
 /**
  * Create a message handler for the content script
@@ -15,7 +16,7 @@ export function createContentMessageHandler(updateOverlayCallback, getCurrentTar
   return function handleMessage(event) {
     if (event.source !== window) return;
 
-    const { type, data } = event.data;
+    const { type } = event.data;
 
     switch (type) {
       case MESSAGE_TYPES.COMPONENT_INFO_RESPONSE:
@@ -45,6 +46,17 @@ function handleComponentInfoResponse(
   if (currentTarget) {
     const mouseX = currentTarget._mouseX || null;
     const mouseY = currentTarget._mouseY || null;
+    
+    // Track state and props changes
+    if (componentInfo) {
+      if (componentInfo.state) {
+        trackStateChange(currentTarget, componentInfo.state);
+      }
+      if (componentInfo.props) {
+        trackPropsChange(currentTarget, componentInfo.props);
+      }
+    }
+    
     updateOverlayCallback(currentTarget, componentInfo, mouseX, mouseY, reactComponentXPath);
   }
 }
