@@ -15,6 +15,16 @@ import {
  * @returns {HTMLElement} Overlay element
  */
 export function createOverlay() {
+  // Check if overlay already exists
+  const existingOverlay = document.getElementById('hovercomp-overlay');
+  if (existingOverlay) {
+    return existingOverlay;
+  }
+  
+  if (!document.body) {
+    return null;
+  }
+  
   const div = document.createElement('div');
   div.id = 'hovercomp-overlay';
   div.className = CSS_CLASSES.OVERLAY;
@@ -38,7 +48,7 @@ export function createOverlay() {
 /**
  * Create framework-specific overlay element (lighter, no panel)
  * @param {string} type - Type of overlay ('react' or 'vue')
- * @returns {HTMLElement} Framework overlay element
+ * @returns {HTMLElement|null} Framework overlay element
  */
 function createFrameworkOverlay(type) {
   const config = {
@@ -56,7 +66,22 @@ function createFrameworkOverlay(type) {
     },
   };
 
-  const { id, className, background, border } = config[type];
+  const typeConfig = config[type];
+  if (!typeConfig) {
+    return null;
+  }
+
+  // Check if overlay already exists
+  const existingOverlay = document.getElementById(typeConfig.id);
+  if (existingOverlay) {
+    return existingOverlay;
+  }
+
+  if (!document.body) {
+    return null;
+  }
+
+  const { id, className, background, border } = typeConfig;
   const div = document.createElement('div');
   div.id = id;
   div.className = className;
@@ -69,8 +94,8 @@ function createFrameworkOverlay(type) {
     border: ${border};
     box-sizing: border-box;
   `;
+  
   document.body.appendChild(div);
-
   return div;
 }
 
@@ -165,17 +190,6 @@ export function showComponentOverlay(componentOverlay, element) {
 
 // Deprecated: Use showComponentOverlay instead
 export function showVueOverlay(vueOverlay, element) {
-  // Only log warning in development (build script removes console statements in production)
-  if (
-    typeof process !== 'undefined' &&
-    process.env &&
-    process.env.NODE_ENV !== 'production'
-  ) {
-    console.warn(
-      'showVueOverlay is deprecated and will be removed in a future version. ' +
-      'Use showComponentOverlay instead.'
-    );
-  }
   showComponentOverlay(vueOverlay, element);
 }
 

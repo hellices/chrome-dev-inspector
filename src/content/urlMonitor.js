@@ -2,20 +2,20 @@
  * URL Monitor - Monitors URL changes and resets overlay state on navigation
  */
 
+// Store interval and observer for cleanup
+let urlCheckInterval = null;
+let titleObserver = null;
+
 /**
  * Handle URL change
  */
 export function handleUrlChange(state, resetOverlayStateFn, hideOverlayFn, hideReactOverlayFn, hideVueOverlayFn) {
   const newUrl = window.location.href;
   if (newUrl !== state.currentUrl) {
-    console.log('[HoverComp] URL changed from', state.currentUrl, 'to', newUrl);
-    console.log('[HoverComp] Pinned state:', state.isPinned);
     state.currentUrl = newUrl;
     if (state.isPinned) {
-      console.log('[HoverComp] Unpinning and resetting overlay');
       resetOverlayStateFn(hideOverlayFn, hideReactOverlayFn, hideVueOverlayFn);
     } else {
-      console.log('[HoverComp] Hiding overlay (not pinned)');
       // For non-pinned state, just hide the overlay
       hideOverlayFn(state.overlay);
       hideReactOverlayFn(state.reactOverlay);
@@ -60,18 +60,32 @@ export function monitorUrlChanges(state, resetOverlayStateFn, hideOverlayFn, hid
   });
 
   // Periodic check for URL changes (fallback for edge cases)
-  setInterval(() => {
+  urlCheckInterval = setInterval(() => {
     handleChange();
-  }, 500);
+  }, 2000); // Reduced frequency to avoid performance impact
 
   // Monitor DOM mutations that might indicate navigation
-  const observer = new MutationObserver(() => {
+  titleObserver = new MutationObserver(() => {
     handleChange();
   });
 
   // Observe title changes (common during navigation)
   const titleElement = document.querySelector('title');
   if (titleElement) {
-    observer.observe(titleElement, { childList: true, characterData: true, subtree: true });
+    titleObserver.observe(titleElement, { childList: true, characterData: true, subtree: true });
+  }
+}
+
+/**
+ * Cleanup URL monitoring resources
+ */
+export function cleanupUrlMonitor() {
+  if (urlCheckInterval) {
+    clearInterval(urlCheckInterval);
+    urlCheckInterval = null;
+  }
+  if (titleObserver) {
+    titleObserver.disconnect();
+    titleObserver = null;
   }
 }

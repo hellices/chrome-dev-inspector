@@ -25,14 +25,12 @@ export const state = {
  * Reset overlay state (unpin and hide)
  */
 export function resetOverlayState(hideOverlayFn, hideReactOverlayFn, hideVueOverlayFn) {
-  console.log('[HoverComp] Resetting overlay state - isPinned was:', state.isPinned);
   state.isPinned = false;
   state.pinnedPosition = null;
   state.currentTarget = null;
   hideOverlayFn(state.overlay);
   hideReactOverlayFn(state.reactOverlay);
   hideVueOverlayFn(state.vueOverlay);
-  console.log('[HoverComp] Reset complete - isPinned now:', state.isPinned);
 }
 
 /**
@@ -47,5 +45,4 @@ export function toggleEnabled(hideOverlayFn, hideReactOverlayFn, hideVueOverlayF
     state.isPinned = false;
     state.pinnedPosition = null;
   }
-  console.log(`[HoverComp Dev Inspector] ${state.isEnabled ? 'Enabled' : 'Disabled'}`);
 }

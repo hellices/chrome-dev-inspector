@@ -63,19 +63,28 @@ function init() {
   }, 3000);
   
   // Re-detect on DOM changes (for SPAs)
-  const observer = new MutationObserver(() => {
-    updateDetectedFrameworksState(state);
-  });
+  let observer = null;
   
   // Start observing after initial load
   setTimeout(() => {
-    observer.observe(document.body, { 
-      childList: true, 
-      subtree: true 
-    });
-    
-    // Stop observing after 60 seconds to avoid performance issues while still supporting SPAs
-    setTimeout(() => observer.disconnect(), 60000);
+    if (!observer && document.body) {
+      observer = new MutationObserver(() => {
+        updateDetectedFrameworksState(state);
+      });
+      
+      observer.observe(document.body, { 
+        childList: true, 
+        subtree: true 
+      });
+      
+      // Stop observing after 60 seconds to avoid performance issues while still supporting SPAs
+      setTimeout(() => {
+        if (observer) {
+          observer.disconnect();
+          observer = null;
+        }
+      }, 60000);
+    }
   }, 500);
 
   // Setup event listeners with proper bindings
@@ -87,8 +96,6 @@ function init() {
   window.addEventListener('scroll', () => handleScroll(state, resetOverlayState, updateOverlayOnScroll, hideOverlayFns), true);
   window.addEventListener('message', messageHandler);
   window.addEventListener('beforeunload', () => handleBeforeUnload(resetOverlayState, hideOverlayFns));
-
-  console.log('[HoverComp Dev Inspector] Content script loaded');
 }
 
 // Start when DOM is ready
@@ -98,6 +105,14 @@ if (document.readyState === 'loading') {
   init();
 }
 
+// Cleanup function for extension unload
+function cleanup() {
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+}
+
 // Export for testing
-export { updateOverlayWrapper as updateOverlay, toggleEnabled, handleMouseMove };
+export { updateOverlayWrapper as updateOverlay, toggleEnabled, handleMouseMove, cleanup };
 

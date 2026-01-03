@@ -50,6 +50,7 @@ import { invalidateCache } from '../utils/messageHandler.js';
 function setupAllEventHandlers(panel, element, state, requestComponentInfoFn) {
   const refreshOverlay = (el) => {
     invalidateCache(el);
+    // Short delay to ensure cache is invalidated before re-requesting
     setTimeout(() => requestComponentInfoFn(el, state.inspectionMode), 10);
   };
 
@@ -92,9 +93,15 @@ function setupAllEventHandlers(panel, element, state, requestComponentInfoFn) {
  * Update overlay with component info
  */
 export function updateOverlay(element, componentInfo, mouseX, mouseY, reactComponentXPath, state, requestComponentInfoFn) {
+  // Validate element
+  if (!element || !(element instanceof HTMLElement)) {
+    return;
+  }
+
   // Track detected frameworks from component info
   trackDetectedFramework(componentInfo, state.detectedFrameworksFromInpage);
 
+  // Ensure overlays exist
   if (!state.overlay) {
     state.overlay = createOverlay();
   }

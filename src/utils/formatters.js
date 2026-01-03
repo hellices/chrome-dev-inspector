@@ -17,11 +17,23 @@ export function formatValue(value) {
     return `<span style="color: #a5d6a7;">"${escapeHtml(value)}"</span>`;
   if (typeof value === 'number') return `<span style="color: #90caf9;">${value}</span>`;
   if (typeof value === 'boolean') return `<span style="color: #ce93d8;">${value}</span>`;
-  if (Array.isArray(value)) return `<span style="color: #999;">[Array(${value.length})]</span>`;
+  if (Array.isArray(value)) {
+    try {
+      const str = JSON.stringify(value, null, 2);
+      if (str.length > 300) {
+        return `<details style="display: inline-block; vertical-align: top; max-width: 100%;"><summary style="cursor: pointer; color: #999; list-style: none; display: inline; user-select: none;"><span style="opacity: 0.8;">[...]</span> <span style="font-size: 9px; opacity: 0.5;">▼</span></summary><div style="margin: 4px 0 0 16px; padding: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; max-height: 200px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) rgba(0,0,0,0.2);"><pre style="margin: 0; color: #999; font-size: 10px; white-space: pre-wrap; word-break: break-all;">${escapeHtml(str)}</pre></div></details>`;
+      }
+      return `<span style="color: #999;">${escapeHtml(str)}</span>`;
+    } catch {
+      return `<span style="color: #999;">[Array(${value.length})]</span>`;
+    }
+  }
   if (typeof value === 'object') {
     try {
       const str = JSON.stringify(value, null, 2);
-      if (str.length > 100) return `<span style="color: #999;">{Object}</span>`;
+      if (str.length > 300) {
+        return `<details style="display: inline-block; vertical-align: top; max-width: 100%;"><summary style="cursor: pointer; color: #999; list-style: none; display: inline; user-select: none;"><span style="opacity: 0.8;">{...}</span> <span style="font-size: 9px; opacity: 0.5;">▼</span></summary><div style="margin: 4px 0 0 16px; padding: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; max-height: 200px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) rgba(0,0,0,0.2);"><pre style="margin: 0; color: #999; font-size: 10px; white-space: pre-wrap; word-break: break-all;">${escapeHtml(str)}</pre></div></details>`;
+      }
       return `<span style="color: #999;">${escapeHtml(str)}</span>`;
     } catch {
       return `<span style="color: #999;">{Object}</span>`;

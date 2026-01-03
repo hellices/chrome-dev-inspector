@@ -8,6 +8,9 @@ import { getPanel } from '../overlay/overlayManager.js';
 import { calculatePanelPosition, applyPanelPosition } from '../utils/panelPosition.js';
 import { toggleModeSelector } from './modeSelector.js';
 
+// Panel position update timeout ID for debouncing
+let panelPositionTimeout = null;
+
 /**
  * Handle mouse move event
  */
@@ -26,6 +29,12 @@ export function handleMouseMove(event, state, hideOverlayFns) {
   if (state.currentTarget && state.overlay?.style.display !== 'none') {
     const panel = getPanel(state.overlay);
     if (panel) {
+      // Clear previous timeout to debounce rapid position updates
+      if (panelPositionTimeout) {
+        clearTimeout(panelPositionTimeout);
+        panelPositionTimeout = null;
+      }
+      
       const panelRect = panel.getBoundingClientRect();
       const position = calculatePanelPosition(mouseX, mouseY, panelRect);
       applyPanelPosition(panel, position, false);
@@ -42,8 +51,10 @@ export function handleMouseMove(event, state, hideOverlayFns) {
   state.currentTarget = target;
 
   // Store mouse position for overlay positioning
-  state.currentTarget._mouseX = mouseX;
-  state.currentTarget._mouseY = mouseY;
+  if (state.currentTarget) {
+    state.currentTarget._mouseX = mouseX;
+    state.currentTarget._mouseY = mouseY;
+  }
 
   requestComponentInfo(target, state.inspectionMode);
 }
@@ -61,7 +72,6 @@ export function handleClick(event, state) {
     // Unpin
     state.isPinned = false;
     state.pinnedPosition = null;
-    console.log('[HoverComp] Unpinned');
   } else {
     // Pin at current position
     if (state.overlay?.style.display !== 'none') {
@@ -72,7 +82,6 @@ export function handleClick(event, state) {
           x: parseInt(panel.style.left),
           y: parseInt(panel.style.top),
         };
-        console.log('[HoverComp] Pinned at', state.pinnedPosition);
       }
     }
   }

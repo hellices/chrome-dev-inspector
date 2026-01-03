@@ -7,9 +7,8 @@
   'use strict';
 
   // Constants
-  // Note: This constant is also defined in src/config/constants.js for consistency across
-  // the codebase. However, since inpage.js runs in the page context and cannot import ES
-  // modules, we need to define it here as well. Keep both values in sync.
+  // Note: Since inpage.js runs in the page context and cannot import ES modules,
+  // we need to define this constant here. Keep it in sync with src/config/constants.js.
   const MAX_COMPONENT_HIERARCHY_DEPTH = 20;
 
   // Import detection utilities (inline for injection)
@@ -196,15 +195,26 @@
 
               // Extract detailed information
               const props = fiber.memoizedProps || {};
-              const state = fiber.memoizedState;
-              const hooks = extractHooks(fiber);
+              
+              // Distinguish between class components (with state) and functional components (with hooks)
+              let state = null;
+              let hooks = [];
+              
+              // Check if it's a class component (has stateNode with state property)
+              if (fiber.stateNode && fiber.stateNode.state) {
+                // Class component
+                state = sanitizeValue(fiber.stateNode.state);
+              } else {
+                // Functional component - extract hooks instead
+                hooks = extractHooks(fiber);
+              }
 
               const componentInfo = {
                 name,
                 isUserComponent,
                 score,
                 props: sanitizeProps(props),
-                state: sanitizeValue(state),
+                state: state,
                 hooks: hooks,
                 source: debugSource || componentType._source || null,
                 fileName: fileName,
@@ -215,17 +225,6 @@
               };
 
               componentHierarchy.push(componentInfo);
-
-              // Debug logging
-              if (name === 'AppRouter' || name.includes('Router')) {
-                console.log('[HoverComp Debug]', name, {
-                  score,
-                  isUserComponent,
-                  isKnownFramework,
-                  hasFrameworkPattern,
-                  fileName: fileName.substring(fileName.lastIndexOf('/') + 1),
-                });
-              }
             }
           }
 
@@ -242,16 +241,6 @@
           return componentHierarchy.indexOf(b) - componentHierarchy.indexOf(a);
         });
 
-        // Debug logging
-        console.log(
-          '[HoverComp] All components:',
-          componentHierarchy.map((c) => `${c.name}(${c.score}, user:${c.isUserComponent})`)
-        );
-        console.log(
-          '[HoverComp] User components:',
-          userComponents.map((c) => `${c.name}(${c.score})`)
-        );
-
         // Select highest scored user component, or fallback to non-framework with positive score
         const targetComponent =
           userComponents[0] ||
@@ -259,13 +248,6 @@
             (c) => !c.isKnownFramework && !c.hasFrameworkPattern && c.score >= 0
           ) ||
           componentHierarchy[0];
-
-        console.log(
-          '[HoverComp] Selected component:',
-          targetComponent?.name,
-          'Score:',
-          targetComponent?.score
-        );
 
         if (targetComponent) {
           // Filter hierarchy to show only user components or key library components
@@ -309,7 +291,7 @@
           };
         }
       } catch (e) {
-        console.error('React detection error:', e);
+        // Silent fail - React detection errors are expected on non-React pages
       }
       return null;
     }
@@ -345,13 +327,17 @@
 
       // Traverse children to find a DOM node
       current = fiber.child;
-      while (current) {
+      let depth = 0;
+      const MAX_DEPTH = 100; // Prevent infinite loops
+      
+      while (current && depth < MAX_DEPTH) {
         if (current.stateNode && current.stateNode instanceof HTMLElement) {
           return current.stateNode;
         }
         // Go deeper if needed
         if (current.child) {
           current = current.child;
+          depth++;
         } else if (current.sibling) {
           current = current.sibling;
         } else {
@@ -535,6 +521,7 @@
 
           // Try parent element
           current = current.parentElement;
+          componentHierarchy = []; // Reset for next parent node
           if (!current || current === document.body || current === document.documentElement) {
             break;
           }
@@ -550,7 +537,7 @@
           };
         }
       } catch (e) {
-        console.error('[HoverComp] Vue 3 detection error:', e);
+        // Silent fail - Vue detection errors are expected on non-Vue pages
       }
       return null;
     }
@@ -638,6 +625,7 @@
   /**
    * Get XPath for an element (inline implementation for injected script)
    * Note: Cannot import from utils as this runs in page context
+   * This is a duplicate of domHelpers.getXPath but necessary for the injected context
    */
   function getXPath(element) {
     if (!element || element.nodeType !== Node.ELEMENT_NODE) {
@@ -649,21 +637,23 @@
     }
 
     const parts = [];
-    while (element && element.nodeType === Node.ELEMENT_NODE) {
-      let index = 0;
-      let sibling = element.previousSibling;
+    let currentElement = element;
+    
+    while (currentElement && currentElement.nodeType === Node.ELEMENT_NODE) {
+      let index = 1; // XPath index starts at 1
+      let sibling = currentElement.previousSibling;
 
       while (sibling) {
-        if (sibling.nodeType === Node.ELEMENT_NODE && sibling.nodeName === element.nodeName) {
+        if (sibling.nodeType === Node.ELEMENT_NODE && sibling.nodeName === currentElement.nodeName) {
           index++;
         }
         sibling = sibling.previousSibling;
       }
 
-      const tagName = element.nodeName.toLowerCase();
-      const pathIndex = index ? `[${index + 1}]` : '';
+      const tagName = currentElement.nodeName.toLowerCase();
+      const pathIndex = index > 1 ? `[${index}]` : '';
       parts.unshift(`${tagName}${pathIndex}`);
-      element = element.parentNode;
+      currentElement = currentElement.parentNode;
     }
 
     return parts.length ? `/${parts.join('/')}` : '';
@@ -790,10 +780,9 @@
 
         if (element) {
           componentCache.delete(element);
-          console.log('[HoverComp] Cache invalidated for element');
         }
       } catch (e) {
-        console.error('Error invalidating cache:', e);
+        // Silent fail
       }
     } else if (event.data.type === 'GET_COMPONENT_INFO') {
       const { targetPath, inspectionMode } = event.data;
@@ -811,7 +800,7 @@
           ).singleNodeValue;
         }
       } catch (e) {
-        console.error('Error resolving element:', e);
+        // Silent fail
       }
 
       const componentInfo = element ? getComponentInfo(element, inspectionMode || 'auto') : null;
@@ -928,16 +917,14 @@
                           // Call dispatch to trigger re-render
                           hook.queue.dispatch(parsedValue);
 
-                          console.log('[HoverComp] Hook updated and scheduled');
+                          window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
+                          return;
                         } finally {
                           // Restore console.error
                           console.error = originalError;
                         }
-
-                        window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
-                        return;
                       } catch (err) {
-                        console.error('[HoverComp] Error calling dispatch:', err);
+                        // Silent fail
                       }
                     }
 
@@ -988,11 +975,10 @@
                           fiberRoot.scheduleRefresh();
                         }
                       } catch (e) {
-                        console.log('[HoverComp] Could not schedule root update:', e.message);
+                        // Silent fail
                       }
                     }
 
-                    console.log('[HoverComp] Hook updated (fallback method)');
                     window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
                     return;
                   }
@@ -1004,12 +990,10 @@
               componentFiber = componentFiber.return;
             }
 
-            console.warn('[HoverComp] Hook not found');
             window.postMessage({ type: 'UPDATE_ERROR', error: 'Hook not found' }, '*');
           }
         }
       } catch (e) {
-        console.error('Error updating hook:', e);
         window.postMessage({ type: 'UPDATE_ERROR', error: e.message }, '*');
       }
     } else if (event.data.type === 'UPDATE_STATE') {
@@ -1051,7 +1035,6 @@
                 // Try to use setState if available
                 if (typeof componentFiber.stateNode.setState === 'function') {
                   componentFiber.stateNode.setState({ [stateKey]: parsedValue });
-                  console.log('[HoverComp] State updated via setState');
                   window.postMessage({ type: 'UPDATE_SUCCESS' }, '*');
                   return;
                 }
@@ -1100,24 +1083,14 @@
               componentFiber = componentFiber.return;
             }
 
-            console.warn('[HoverComp] State not found');
             window.postMessage({ type: 'UPDATE_ERROR', error: 'State not found' }, '*');
           }
         }
       } catch (e) {
-        console.error('Error updating state:', e);
         window.postMessage({ type: 'UPDATE_ERROR', error: e.message }, '*');
       }
     }
   });
-
-  function getFiberRoot(fiber) {
-    let current = fiber;
-    while (current.return) {
-      current = current.return;
-    }
-    return current.stateNode;
-  }
 
   function parseValue(value) {
     try {
@@ -1126,6 +1099,4 @@
       return value;
     }
   }
-
-  console.log('[HoverComp Dev Inspector] In-page script loaded');
 })();

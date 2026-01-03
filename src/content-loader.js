@@ -6,6 +6,6 @@
     const moduleUrl = chrome.runtime.getURL('src/content.js');
     await import(moduleUrl);
   } catch (error) {
-    console.error('[HoverComp] Failed to load content module:', error);
+    // Silent fail - module loading errors are typically permission issues
   }
 })();

@@ -8,13 +8,17 @@
  * @returns {string|null} XPath string or null
  */
 export function getXPath(element) {
+  if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+    return null;
+  }
+
   if (element.id) {
     return `//*[@id="${element.id}"]`;
   }
 
   const parts = [];
   while (element && element.nodeType === Node.ELEMENT_NODE) {
-    let index = 0;
+    let index = 1; // XPath index starts at 1
     let sibling = element.previousSibling;
     while (sibling) {
       if (sibling.nodeType === Node.ELEMENT_NODE && sibling.nodeName === element.nodeName) {
@@ -24,7 +28,7 @@ export function getXPath(element) {
     }
 
     const tagName = element.nodeName.toLowerCase();
-    const pathIndex = index ? `[${index + 1}]` : '';
+    const pathIndex = index > 1 ? `[${index}]` : '';
     parts.unshift(tagName + pathIndex);
 
     element = element.parentNode;

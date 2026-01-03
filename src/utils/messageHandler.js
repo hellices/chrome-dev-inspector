@@ -23,12 +23,11 @@ export function createContentMessageHandler(updateOverlayCallback, getCurrentTar
         break;
 
       case MESSAGE_TYPES.UPDATE_SUCCESS:
-        console.log('[HoverComp] Value updated successfully');
         refreshOverlay(getCurrentTarget);
         break;
 
       case MESSAGE_TYPES.UPDATE_ERROR:
-        console.error('[HoverComp] Update failed:', event.data.error);
+        // Silent fail - error details are logged in inpage.js
         break;
     }
   };
@@ -76,7 +75,15 @@ export function postMessage(type, data = {}) {
  * @param {string} inspectionMode - Inspection mode ('auto', 'react', 'html', etc.)
  */
 export function requestComponentInfo(element, inspectionMode = 'auto') {
+  if (!element) {
+    return;
+  }
+  
   const xpath = getXPath(element);
+  if (!xpath) {
+    return;
+  }
+  
   postMessage(MESSAGE_TYPES.GET_COMPONENT_INFO, { targetPath: xpath, inspectionMode });
 }
 
@@ -85,7 +92,11 @@ export function requestComponentInfo(element, inspectionMode = 'auto') {
  * @param {HTMLElement} element - Target element
  */
 export function invalidateCache(element) {
+  if (!element) return;
+  
   const xpath = getXPath(element);
+  if (!xpath) return;
+  
   postMessage(MESSAGE_TYPES.INVALIDATE_CACHE, { targetPath: xpath });
 }
 
@@ -96,7 +107,11 @@ export function invalidateCache(element) {
  * @param {*} newValue - New value
  */
 export function updateHook(element, hookIndex, newValue) {
+  if (!element) return;
+  
   const xpath = getXPath(element);
+  if (!xpath) return;
+  
   postMessage(MESSAGE_TYPES.UPDATE_HOOK, { targetPath: xpath, hookIndex, newValue });
 }
 
@@ -107,6 +122,10 @@ export function updateHook(element, hookIndex, newValue) {
  * @param {*} newValue - New value
  */
 export function updateState(element, stateKey, newValue) {
+  if (!element) return;
+  
   const xpath = getXPath(element);
+  if (!xpath) return;
+  
   postMessage(MESSAGE_TYPES.UPDATE_STATE, { targetPath: xpath, stateKey, newValue });
 }

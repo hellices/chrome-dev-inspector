@@ -70,6 +70,8 @@ function setupEditableElementHandlers(editableElement, originalValue, config) {
  * @param {HTMLElement} element - Target element
  */
 export function setupEditableHookHandlers(panel, element) {
+  if (!panel || !element) return;
+  
   panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_HOOK}`).forEach((span) => {
     const originalValue = span.textContent;
 
@@ -98,6 +100,8 @@ export function setupEditableHookHandlers(panel, element) {
  * @param {HTMLElement} element - Target element
  */
 export function setupEditableStateHandlers(panel, element) {
+  if (!panel || !element) return;
+  
   panel.querySelectorAll(`.${CSS_CLASSES.EDITABLE_STATE}`).forEach((div) => {
     const originalValue = div.textContent;
 
@@ -127,6 +131,8 @@ export function setupEditableStateHandlers(panel, element) {
  * @param {Function} refreshCallback - Callback to refresh overlay
  */
 export function setupClassToggleHandlers(panel, element, refreshCallback) {
+  if (!panel || !element) return;
+  
   // Support both old and new class names
   const selectors = [`.${CSS_CLASSES.TOGGLE_CLASS}`, '.hovercomp-toggle-class'];
   selectors.forEach((selector) => {
@@ -174,6 +180,8 @@ export function setupClassToggleHandlers(panel, element, refreshCallback) {
  * @param {Function} refreshCallback - Callback to refresh overlay
  */
 export function setupStyleToggleHandlers(panel, element, refreshCallback) {
+  if (!panel || !element) return;
+  
   panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_STYLE}`).forEach((span) => {
     span.onclick = (e) => {
       e.stopPropagation();
@@ -245,6 +253,8 @@ export function setupStyleToggleHandlers(panel, element, refreshCallback) {
  * @param {HTMLElement} element - Target element
  */
 export function setupComputedStyleHandlers(panel, element) {
+  if (!panel || !element) return;
+  
   // Support both old and new class names
   const selectors = [`.${CSS_CLASSES.COMPUTED_STYLE_ITEM}`, '.hovercomp-computed-style-item'];
   selectors.forEach((selector) => {
@@ -285,6 +295,8 @@ export function setupComputedStyleHandlers(panel, element) {
  * @param {Function} adjustPositionCallback - Callback to adjust panel position
  */
 export function setupToggleSectionHandlers(panel, expandedSections, adjustPositionCallback) {
+  if (!panel || !expandedSections) return;
+  
   panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_SECTION}`).forEach((toggle) => {
     toggle.style.cursor = 'pointer';
     toggle.onclick = (e) => {
@@ -324,6 +336,8 @@ function updateExpandedSectionsState(toggle, isExpanded, expandedSections) {
  * @param {Object} expandedSections - Expanded sections state
  */
 export function restoreExpandedSections(panel, expandedSections) {
+  if (!panel || !expandedSections) return;
+  
   setTimeout(() => {
     panel.querySelectorAll(`.${CSS_CLASSES.TOGGLE_SECTION}`).forEach((toggle) => {
       const sectionText = toggle.textContent.toLowerCase();
@@ -352,11 +366,19 @@ export function restoreExpandedSections(panel, expandedSections) {
  * @param {HTMLElement} element - Element to select
  */
 function selectAllText(element) {
-  const range = document.createRange();
-  range.selectNodeContents(element);
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
+  if (!element) return;
+  
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  } catch (error) {
+    console.warn('[HoverComp] Error selecting text:', error);
+  }
 }
 
 // ============================================================================
