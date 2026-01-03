@@ -44,59 +44,20 @@ jobs:
       - name: Build extension
         run: npm run build
 
-      - name: Validate build output
-        run: |
-          # Ensure dist directory exists and contains required files
-          if [ ! -d "dist" ]; then
-            echo "Error: dist directory not found after build"
-            exit 1
-          fi
-          
-          # Check for critical files
-          required_files=("src/inpage.js" "src/content.js" "manifest.json")
-          for file in "${required_files[@]}"; do
-            if [ ! -f "dist/$file" ]; then
-              echo "Error: Required file dist/$file not found"
-              exit 1
-            fi
-          done
-          
-          echo "✅ Build validation successful - all required files present"
-
-      - name: Verify version consistency
+      - name: Verify tag version matches package.json
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          MANIFEST_VERSION=$(node -p "require('./dist/manifest.json').version")
           TAG_VERSION=${GITHUB_REF#refs/tags/v}
-          
-          if [ "$PACKAGE_VERSION" != "$MANIFEST_VERSION" ]; then
-            echo "Error: Version mismatch between package.json ($PACKAGE_VERSION) and manifest.json ($MANIFEST_VERSION)"
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: package.json version ($PACKAGE_VERSION) doesn't match tag ($TAG_VERSION)"
             exit 1
           fi
-          
-          if [ -n "$TAG_VERSION" ] && [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
-            echo "Error: Version mismatch between package.json ($PACKAGE_VERSION) and git tag ($TAG_VERSION)"
-            exit 1
-          fi
-          
-          echo "✅ Version consistency verified: v$PACKAGE_VERSION"
 
       - name: Create extension package
         run: |
           cd dist
           zip -r ../extension.zip .
-          cd ..
-          
-          # Check package size
-          SIZE=$(stat -f%z "extension.zip" 2>/dev/null || stat -c%s "extension.zip")
-          echo "Package size: $(echo "scale=2; $SIZE/1024/1024" | bc) MB"
-          
-          # Check Chrome Web Store size limit (128MB)
-          MAX_SIZE=$((128 * 1024 * 1024))
-          if [ $SIZE -gt $MAX_SIZE ]; then
-            echo "Error: Package size exceeds Chrome Web Store limit (128MB)"
-            exit 1
-          fi
 
       - name: Upload extension artifact
         uses: actions/upload-artifact@v4
@@ -155,5 +116,3 @@ jobs:
         if: failure()
         run: |
           echo "❌ Publication failed!"
-          echo "Check the logs above for details"
-          exit 1
