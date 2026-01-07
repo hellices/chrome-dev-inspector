@@ -3,7 +3,7 @@
   "name": "HoverComp Dev Inspector",
   "version": "1.0.6",
   "description": "Hover-based component inspector with performance profiling and advanced tracking for React, Vue, and Svelte",
-  "permissions": ["activeTab"],
+  "permissions": [],
   "host_permissions": [
     "http://*/*",
     "https://*/*"

@@ -11,7 +11,6 @@ import {
   updateDetectedFrameworksState,
 } from './content/modeSelector.js';
 import { monitorUrlChanges } from './content/urlMonitor.js';
-import { showWelcomeTipIfFirstTime } from './content/welcomeTip.js';
 import { updateOverlay, updateOverlayOnScroll } from './content/overlayController.js';
 import {
   handleMouseMove,
@@ -49,9 +48,6 @@ const messageHandler = createContentMessageHandler(updateOverlayWrapper, () => s
 function init() {
   injectInPageScript();
   monitorUrlChanges(state, resetOverlayState, hideOverlay, hideReactOverlay, hideVueOverlay);
-
-  // Show welcome tip for first-time users
-  showWelcomeTipIfFirstTime();
 
   // Detect frameworks on page - multiple attempts for SPAs
   setTimeout(() => {
