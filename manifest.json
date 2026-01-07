@@ -26,7 +26,6 @@
         "src/content/state.js",
         "src/content/modeSelector.js",
         "src/content/urlMonitor.js",
-        "src/content/welcomeTip.js",
         "src/content/overlayController.js",
         "src/content/contentEventHandlers.js",
         "src/utils/domHelpers.js",
