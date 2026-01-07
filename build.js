@@ -10,10 +10,13 @@ const { minify } = require('terser');
 const srcDir = path.join(__dirname, 'src');
 const distDir = path.join(__dirname, 'dist');
 
-// Create dist directory if it doesn't exist
-if (!fs.existsSync(distDir)) {
-  fs.mkdirSync(distDir, { recursive: true });
+// Clean dist directory if it exists
+if (fs.existsSync(distDir)) {
+  fs.rmSync(distDir, { recursive: true, force: true });
 }
+
+// Create fresh dist directory
+fs.mkdirSync(distDir, { recursive: true });
 
 // Copy non-JS files
 function copyFile(src, dest) {
