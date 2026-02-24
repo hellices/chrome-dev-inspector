@@ -4,6 +4,7 @@
   "description": "Chrome extension for inspecting framework components on hover with advanced tracking and profiling",
   "scripts": {
     "test": "jest",
+    "test:e2e": "npx playwright test",
     "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
     "build": "node build.js",
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@babel/core": "^7.23.0",
     "@babel/preset-env": "^7.23.0",
+    "@playwright/test": "^1.58.2",
     "eslint": "^8.50.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-jest": "^27.4.0",

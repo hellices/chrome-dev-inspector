@@ -4,6 +4,12 @@
   "version": "1.0.7",
   "description": "Hover-based component inspector with performance profiling and advanced tracking for React, Vue, and Svelte",
   "permissions": [],
+  "action": {
+    "default_title": "Toggle Dev Inspector"
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
   "host_permissions": [
     "http://*/*",
     "https://*/*"

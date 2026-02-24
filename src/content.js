@@ -92,6 +92,22 @@ function init() {
   window.addEventListener('scroll', () => handleScroll(state, resetOverlayState, updateOverlayOnScroll, hideOverlayFns), true);
   window.addEventListener('message', messageHandler);
   window.addEventListener('beforeunload', () => handleBeforeUnload(resetOverlayState, hideOverlayFns));
+
+  // Listen for enable/disable from content-loader
+  window.addEventListener('inspector-enable', () => {
+    state.isEnabled = true;
+  });
+  window.addEventListener('inspector-disable', () => {
+    state.isEnabled = false;
+    hideOverlay();
+    hideReactOverlay();
+    hideVueOverlay();
+    state.isPinned = false;
+    state.pinnedPosition = null;
+  });
+
+  // Loaded via content-loader means we should be enabled
+  state.isEnabled = true;
 }
 
 // Start when DOM is ready
