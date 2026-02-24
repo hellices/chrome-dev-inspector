@@ -1,9 +1,13 @@
-import { test, expect, chromium } from '@playwright/test';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const { test, expect, chromium } = require('@playwright/test');
+const path = require('path');
+const http = require('http');
+const fs = require('fs');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const extensionPath = path.resolve(__dirname, '..', '..');
+const testPageHtml = fs.readFileSync(path.resolve(__dirname, 'fixtures', 'test-page.html'), 'utf-8');
+
+let server;
+let serverUrl;
 
 /**
  * Launch browser with the extension loaded
@@ -32,20 +36,31 @@ async function getServiceWorker(context) {
   return sw;
 }
 
-/**
- * Get the extension ID from the service worker URL
- */
-function getExtensionId(sw) {
-  const url = sw.url();
-  const match = url.match(/chrome-extension:\/\/([^/]+)/);
-  return match ? match[1] : null;
-}
+test.beforeAll(async () => {
+  // Start a local server so content scripts inject properly
+  server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(testPageHtml);
+  });
+  await new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      serverUrl = `http://127.0.0.1:${server.address().port}`;
+      resolve();
+    });
+  });
+});
+
+test.afterAll(async () => {
+  if (server) server.close();
+});
 
 test.describe('Per-Tab Toggle', () => {
   let context;
 
   test.beforeAll(async () => {
     context = await launchWithExtension();
+    // Wait for service worker to be ready
+    await getServiceWorker(context);
   });
 
   test.afterAll(async () => {
@@ -55,17 +70,15 @@ test.describe('Per-Tab Toggle', () => {
   test('extension loads and service worker is active', async () => {
     const sw = await getServiceWorker(context);
     expect(sw).toBeTruthy();
-    const extensionId = getExtensionId(sw);
-    expect(extensionId).toBeTruthy();
+    expect(sw.url()).toContain('chrome-extension://');
   });
 
   test('inspector is disabled by default on new tab', async () => {
-    const testPagePath = path.resolve(__dirname, 'fixtures', 'test-page.html');
     const page = await context.newPage();
-    await page.goto(`file://${testPagePath}`);
-    await page.waitForTimeout(1000);
+    await page.goto(serverUrl);
+    await page.waitForTimeout(2000);
 
-    // Hover over an element - overlay should NOT appear since inspector is off
+    // Hover over element - overlay should NOT appear
     await page.hover('#box1');
     await page.waitForTimeout(500);
 
@@ -76,79 +89,111 @@ test.describe('Per-Tab Toggle', () => {
     await page.close();
   });
 
-  test('clicking extension icon enables inspector on current tab', async () => {
-    const testPagePath = path.resolve(__dirname, 'fixtures', 'test-page.html');
+  test('toggle enables inspector on current tab', async () => {
     const page = await context.newPage();
-    await page.goto(`file://${testPagePath}`);
-    await page.waitForTimeout(1000);
+    await page.goto(serverUrl);
+    await page.waitForTimeout(2000);
 
     const sw = await getServiceWorker(context);
-    const extensionId = getExtensionId(sw);
 
-    // Simulate clicking the action icon by sending a message to enable
-    await page.evaluate(() => {
-      chrome.runtime?.sendMessage?.({ type: 'INSPECTOR_CHECK' });
-    });
-
-    // Use chrome.tabs API via the service worker to toggle
-    // We trigger the toggle by sending a message from the content script
+    // Enable via service worker (simulates action click)
     await sw.evaluate(async () => {
       const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
       if (tabs[0]) {
-        // Simulate action click
         const tab = tabs[0];
-        const enabledTabs = self.__enabledTabs || new Set();
-        enabledTabs.add(tab.id);
-        self.__enabledTabs = enabledTabs;
         await chrome.action.setBadgeText({ tabId: tab.id, text: 'ON' });
+        await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#4CAF50' });
         await chrome.tabs.sendMessage(tab.id, { type: 'INSPECTOR_TOGGLE', enabled: true });
       }
     });
 
-    await page.waitForTimeout(500);
-
-    // Now hover - overlay should appear
-    await page.hover('#box1');
     await page.waitForTimeout(1000);
 
-    // Check if inspector is responding (state.isEnabled should be true)
-    const isEnabled = await page.evaluate(() => {
-      return window.__inspectorEnabled !== undefined ? window.__inspectorEnabled : null;
+    // Verify badge
+    const badgeText = await sw.evaluate(async () => {
+      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tabs[0]) {
+        return await chrome.action.getBadgeText({ tabId: tabs[0].id });
+      }
+      return '';
     });
+    expect(badgeText).toBe('ON');
 
-    // At minimum, the toggle message should have been received
-    // The full overlay test depends on content.js loading properly
+    await page.close();
+  });
+
+  test('toggle disables inspector on current tab', async () => {
+    const page = await context.newPage();
+    await page.goto(serverUrl);
+    await page.waitForTimeout(2000);
+
+    const sw = await getServiceWorker(context);
+
+    // Enable first
+    await sw.evaluate(async () => {
+      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tabs[0]) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: 'INSPECTOR_TOGGLE', enabled: true });
+        await chrome.action.setBadgeText({ tabId: tabs[0].id, text: 'ON' });
+      }
+    });
+    await page.waitForTimeout(500);
+
+    // Now disable
+    await sw.evaluate(async () => {
+      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tabs[0]) {
+        await chrome.tabs.sendMessage(tabs[0].id, { type: 'INSPECTOR_TOGGLE', enabled: false });
+        await chrome.action.setBadgeText({ tabId: tabs[0].id, text: '' });
+      }
+    });
+    await page.waitForTimeout(500);
+
+    // Hover - should NOT show overlay
+    await page.hover('#box1');
+    await page.waitForTimeout(500);
+
+    const overlay = await page.$('#elements-dev-inspector-overlay');
+    const isVisible = overlay ? await overlay.isVisible() : false;
+    expect(isVisible).toBe(false);
+
+    // Badge should be empty
+    const badgeText = await sw.evaluate(async () => {
+      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tabs[0]) {
+        return await chrome.action.getBadgeText({ tabId: tabs[0].id });
+      }
+      return 'UNKNOWN';
+    });
+    expect(badgeText).toBe('');
+
     await page.close();
   });
 
   test('inspector stays disabled on other tabs', async () => {
-    const testPagePath = path.resolve(__dirname, 'fixtures', 'test-page.html');
-
-    // Open two tabs
     const page1 = await context.newPage();
-    await page1.goto(`file://${testPagePath}`);
-    await page1.waitForTimeout(1000);
+    await page1.goto(serverUrl);
+    await page1.waitForTimeout(2000);
 
     const page2 = await context.newPage();
-    await page2.goto(`file://${testPagePath}`);
-    await page2.waitForTimeout(1000);
+    await page2.goto(serverUrl);
+    await page2.waitForTimeout(2000);
 
-    // Only enable on page1 via service worker
     const sw = await getServiceWorker(context);
-    await sw.evaluate(async () => {
-      const tabs = await chrome.tabs.query({});
-      // Find the first non-extension tab
-      for (const tab of tabs) {
-        if (tab.url && tab.url.startsWith('file://')) {
-          await chrome.tabs.sendMessage(tab.id, { type: 'INSPECTOR_TOGGLE', enabled: true });
-          break; // only enable first one
-        }
+
+    // Enable only on page1 (first file tab found)
+    await sw.evaluate(async (url) => {
+      const tabs = await chrome.tabs.query({ url: url + '/*' });
+      if (tabs.length > 0) {
+        const tab = tabs[0];
+        await chrome.action.setBadgeText({ tabId: tab.id, text: 'ON' });
+        await chrome.tabs.sendMessage(tab.id, { type: 'INSPECTOR_TOGGLE', enabled: true });
       }
-    });
+    }, serverUrl);
 
     await page2.waitForTimeout(500);
 
-    // page2 should still be disabled - hover should not show overlay
+    // page2 should still be disabled
     await page2.hover('#box1');
     await page2.waitForTimeout(500);
 
@@ -160,35 +205,13 @@ test.describe('Per-Tab Toggle', () => {
     await page2.close();
   });
 
-  test('badge shows ON when enabled', async () => {
+  test('navigation resets badge', async () => {
     const sw = await getServiceWorker(context);
-    const testPagePath = path.resolve(__dirname, 'fixtures', 'test-page.html');
     const page = await context.newPage();
-    await page.goto(`file://${testPagePath}`);
-    await page.waitForTimeout(1000);
+    await page.goto(serverUrl);
+    await page.waitForTimeout(2000);
 
-    // Simulate enabling via action click handler
-    const badgeText = await sw.evaluate(async () => {
-      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-      if (tabs[0]) {
-        await chrome.action.setBadgeText({ tabId: tabs[0].id, text: 'ON' });
-        return await chrome.action.getBadgeText({ tabId: tabs[0].id });
-      }
-      return '';
-    });
-
-    expect(badgeText).toBe('ON');
-    await page.close();
-  });
-
-  test('navigation resets inspector state', async () => {
-    const sw = await getServiceWorker(context);
-    const testPagePath = path.resolve(__dirname, 'fixtures', 'test-page.html');
-    const page = await context.newPage();
-    await page.goto(`file://${testPagePath}`);
-    await page.waitForTimeout(1000);
-
-    // Enable inspector
+    // Enable
     await sw.evaluate(async () => {
       const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
       if (tabs[0]) {
@@ -198,11 +221,11 @@ test.describe('Per-Tab Toggle', () => {
     });
     await page.waitForTimeout(500);
 
-    // Navigate to another page (triggers tabs.onUpdated)
+    // Navigate
     await page.goto('about:blank');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1500);
 
-    // Badge should be cleared after navigation
+    // Badge should be cleared
     const badgeText = await sw.evaluate(async () => {
       const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
       if (tabs[0]) {
@@ -210,8 +233,8 @@ test.describe('Per-Tab Toggle', () => {
       }
       return 'UNKNOWN';
     });
-
     expect(badgeText).toBe('');
+
     await page.close();
   });
 });

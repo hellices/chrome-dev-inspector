@@ -1,11 +1,11 @@
-import { defineConfig } from '@playwright/test';
+const { defineConfig } = require('@playwright/test');
 
-export default defineConfig({
+module.exports = defineConfig({
   testDir: './tests/e2e',
   timeout: 30000,
   retries: 1,
   use: {
-    headless: true,
+    headless: false, // Chrome extensions require headed mode
   },
   projects: [
     {
