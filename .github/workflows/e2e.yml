@@ -36,7 +36,7 @@ jobs:
         run: npm run build
 
       - name: Run E2E tests
-        run: npx playwright test --reporter=html
+        run: xvfb-run npx playwright test --reporter=html
 
       - name: Upload test report
         if: always()
