@@ -119,6 +119,14 @@ test.describe('Per-Tab Toggle', () => {
     });
     expect(badgeText).toBe('ON');
 
+    // Verify inspector actually works - hover should show overlay
+    await page.hover('#box1');
+    await page.waitForTimeout(500);
+
+    const overlay = await page.$('#elements-dev-inspector-overlay');
+    const isVisible = overlay ? await overlay.isVisible() : false;
+    expect(isVisible).toBe(true);
+
     await page.close();
   });
 
@@ -181,15 +189,16 @@ test.describe('Per-Tab Toggle', () => {
 
     const sw = await getServiceWorker(context);
 
-    // Enable only on page1 (first file tab found)
-    await sw.evaluate(async (url) => {
-      const tabs = await chrome.tabs.query({ url: url + '/*' });
-      if (tabs.length > 0) {
+    // Ensure page1 is the active tab, then enable only on the active tab (page1)
+    await page1.bringToFront();
+    await sw.evaluate(async () => {
+      const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tabs[0]) {
         const tab = tabs[0];
         await chrome.action.setBadgeText({ tabId: tab.id, text: 'ON' });
         await chrome.tabs.sendMessage(tab.id, { type: 'INSPECTOR_TOGGLE', enabled: true });
       }
-    }, serverUrl);
+    });
 
     await page2.waitForTimeout(500);
 
