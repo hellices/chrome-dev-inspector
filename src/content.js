@@ -99,9 +99,9 @@ function init() {
   });
   window.addEventListener('inspector-disable', () => {
     state.isEnabled = false;
-    hideOverlay();
-    hideReactOverlay();
-    hideVueOverlay();
+    hideOverlay(state.overlay);
+    hideReactOverlay(state.reactOverlay);
+    hideVueOverlay(state.vueOverlay);
     // Remove mode selector popup
     const modeSelector = document.getElementById('hovercomp-mode-selector');
     if (modeSelector) modeSelector.remove();

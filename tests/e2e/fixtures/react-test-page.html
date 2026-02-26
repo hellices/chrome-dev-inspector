@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>React Test Page</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="/vendor/react.development.js"></script>
+  <script src="/vendor/react-dom.development.js"></script>
+  <script>
+    var e = React.createElement;
+
+    function Counter(props) {
+      var label = props.label || "Count";
+      var _useState = React.useState(0);
+      var count = _useState[0];
+      var setCount = _useState[1];
+      
+      var renderRef = React.useRef(0);
+      var doubled = React.useMemo(function() { return count * 2; }, [count]);
+
+      renderRef.current++;
+
+      return e('div', { id: 'counter-component', 'data-testid': 'counter' },
+        e('h2', null, label + ': ' + count),
+        e('p', { id: 'doubled-value' }, 'Doubled: ' + doubled),
+        e('p', { id: 'render-count' }, 'Renders: ' + renderRef.current),
+        e('button', { id: 'increment-btn', onClick: function() { setCount(function(c) { return c + 1; }); } }, '+'),
+        e('button', { id: 'decrement-btn', onClick: function() { setCount(function(c) { return c - 1; }); } }, '-')
+      );
+    }
+
+    function App() {
+      var _useState2 = React.useState("light");
+      var theme = _useState2[0];
+      var setTheme = _useState2[1];
+
+      return e('div', { id: 'app-component', 'data-testid': 'app', className: theme },
+        e('h1', null, 'React Test App'),
+        e(Counter, { label: 'My Counter' }),
+        e('button', { id: 'theme-toggle', onClick: function() { 
+          setTheme(function(t) { return t === "light" ? "dark" : "light"; }); 
+        } }, 'Toggle Theme')
+      );
+    }
+
+    var root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(e(App));
+  </script>
+</body>
+</html>
