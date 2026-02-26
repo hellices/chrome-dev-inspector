@@ -102,6 +102,7 @@ function init() {
     hideOverlay();
     hideReactOverlay();
     hideVueOverlay();
+    cleanupAllOverlays();
     state.isPinned = false;
     state.pinnedPosition = null;
   });

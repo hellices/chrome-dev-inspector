@@ -41,4 +41,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'INSPECTOR_CHECK' && sender.tab?.id) {
     sendResponse({ enabled: enabledTabs.has(sender.tab.id) });
   }
+  // Handle toggle request from content script (keyboard shortcut)
+  if (message.type === 'INSPECTOR_TOGGLE_REQUEST' && sender.tab?.id) {
+    const tabId = sender.tab.id;
+    if (enabledTabs.has(tabId)) {
+      enabledTabs.delete(tabId);
+      chrome.action.setBadgeText({ tabId, text: '' });
+      chrome.tabs.sendMessage(tabId, { type: 'INSPECTOR_TOGGLE', enabled: false }).catch(() => {});
+    } else {
+      enabledTabs.add(tabId);
+      chrome.action.setBadgeText({ tabId, text: 'ON' });
+      chrome.action.setBadgeBackgroundColor({ tabId, color: '#4CAF50' });
+      chrome.tabs.sendMessage(tabId, { type: 'INSPECTOR_TOGGLE', enabled: true }).catch(() => {});
+    }
+  }
 });
