@@ -6,7 +6,7 @@
 import { DEFAULT_EXPANDED_SECTIONS } from '../config/constants.js';
 
 export const state = {
-  isEnabled: true,
+  isEnabled: false,
   overlay: null,
   reactOverlay: null,
   vueOverlay: null,

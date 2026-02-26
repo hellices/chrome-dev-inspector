@@ -443,6 +443,124 @@ export function detectAngular(node) {
  * @param {HTMLElement} node - DOM node to inspect
  * @returns {Object|null} Component info or null
  */
+/**
+ * Extract Svelte 5 component info from __svelte_meta
+ */
+function extractSvelte5Component(element, meta) {
+  try {
+    const instance = meta.instance || meta.component;
+    const ctx = meta.ctx || instance?.$$?.ctx;
+    
+    // Svelte 5 stores component metadata differently
+    const name = meta.name || instance?.constructor?.name || 'SvelteComponent';
+    const fileName = meta.file || meta.source || '';
+    
+    // Extract props from Svelte 5 component
+    const props = {};
+    const state = {};
+    
+    if (instance) {
+      // Svelte 5 runes: $state values are Proxy objects on the instance
+      // Props are passed as regular properties
+      const ownKeys = Object.getOwnPropertyNames(instance);
+      
+      for (const key of ownKeys) {
+        if (key.startsWith('$$') || key.startsWith('__') || key === 'constructor') continue;
+        try {
+          const descriptor = Object.getOwnPropertyDescriptor(instance, key);
+          const value = descriptor?.get ? descriptor.get() : instance[key];
+          
+          if (typeof value === 'function') continue;
+          
+          // Determine if prop or state based on Svelte 5 conventions
+          if (meta.props && meta.props.includes(key)) {
+            props[key] = sanitizePropsSvelte({ [key]: value })[key];
+          } else {
+            state[key] = extractSvelteState({ $$: { ctx: [value], props: {} } })[`state_0`] || sanitizeValueForSvelte5(value);
+          }
+        } catch {
+          // Skip inaccessible properties
+        }
+      }
+      
+      // Also try Svelte 5's $$ if it exists
+      if (instance.$$ && instance.$$.props) {
+        const propDefs = instance.$$.props;
+        const ctxArr = instance.$$.ctx;
+        for (const propName in propDefs) {
+          if (!(propName in props) && ctxArr) {
+            const idx = propDefs[propName];
+            if (ctxArr[idx] !== undefined) {
+              props[propName] = sanitizePropsSvelte({ [propName]: ctxArr[idx] })[propName];
+            }
+          }
+        }
+      }
+    }
+
+    const isKnownFramework = isKnownFrameworkComponentSvelte(name, fileName);
+    const hasFrameworkPat = hasFrameworkPatternSvelte(name);
+    const score = calculateComponentScoreSvelte({
+      fileName,
+      parentFileName: '',
+      hasProps: Object.keys(props).length > 0,
+      hasState: Object.keys(state).length > 0,
+      isKnownFramework,
+      hasFrameworkPattern: hasFrameworkPat,
+    });
+
+    return {
+      framework: 'Svelte 5',
+      name,
+      detail: fileName,
+      isUserComponent: isUserComponentSvelte(score, isKnownFramework, hasFrameworkPat),
+      hierarchy: [name],
+      allUserComponents: [name],
+      fileName,
+      props,
+      state,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeValueForSvelte5(value) {
+  if (value === null) return null;
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'function') return '[Function]';
+  if (typeof value === 'symbol') return '[Symbol]';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'object') {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
+    }
+  }
+  return String(value);
+}
+
+/**
+ * Try to detect Svelte 5 component by walking up from a Svelte-rendered element
+ */
+function detectSvelte5FromElement(element) {
+  try {
+    let current = element;
+    while (current && current !== document.body) {
+      if (current.__svelte_meta) {
+        return extractSvelte5Component(current, current.__svelte_meta);
+      }
+      // Svelte 5 may use $$host or $$root references
+      if (current.$$host && current.$$host.__svelte_meta) {
+        return extractSvelte5Component(current.$$host, current.$$host.__svelte_meta);
+      }
+      current = current.parentElement;
+    }
+  } catch { /* ignored */ }
+  return null;
+}
+
 export function detectSvelte(node) {
   try {
     let current = node;
@@ -451,12 +569,25 @@ export function detectSvelte(node) {
     // Try to find Svelte component in current or parent nodes
     while (current) {
       // Svelte stores component data in different ways:
-      // 1. __svelte_* properties (older versions)
-      // 2. Direct $$ property (Svelte 4+)
-      // 3. Data attributes with svelte- prefix
+      // 1. __svelte_meta (Svelte 5 runes)
+      // 2. __svelte_* properties (older versions)
+      // 3. Direct $$ property (Svelte 3/4)
+      // 4. Data attributes with svelte- prefix
       
       let component = null;
+      let isSvelte5 = false;
       
+      // Method 0: Check for Svelte 5 __svelte_meta
+      if (current.__svelte_meta) {
+        const meta = current.__svelte_meta;
+        const instance = meta.instance || meta.component;
+        if (instance) {
+          const result = extractSvelte5Component(current, meta);
+          if (result) return result;
+        }
+        isSvelte5 = true;
+      }
+
       // Method 1: Check for __svelte_* keys
       const svelteKeys = Object.keys(current).filter(
         (key) => key.startsWith('__svelte_') || key === '__svelte'
@@ -466,16 +597,20 @@ export function detectSvelte(node) {
         component = current[svelteKeys[0]];
       }
       
-      // Method 2: Check for direct $$ property (Svelte 4+)
+      // Method 2: Check for direct $$ property (Svelte 3/4)
       if (!component && current.$$) {
         component = current;
       }
       
       // Method 3: Check data-svelte-h or other svelte attributes
-      if (!component && current.hasAttribute && 
+      if (!component && !isSvelte5 && current.hasAttribute && 
           (current.hasAttribute('data-svelte-h') || 
            current.hasAttribute('class') && current.className.includes('svelte-'))) {
-        // This is a Svelte-rendered element, create a minimal component info
+        // This is a Svelte-rendered element, try Svelte 5 context walk
+        const svelte5Result = detectSvelte5FromElement(current);
+        if (svelte5Result) return svelte5Result;
+
+        // Fallback: minimal component info
         const classes = current.className.split(' ');
         const svelteClass = classes.find(c => c.startsWith('svelte-'));
         

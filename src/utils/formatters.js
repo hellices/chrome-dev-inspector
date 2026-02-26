@@ -296,8 +296,19 @@ function formatHooks(hooks) {
 
   hooks.forEach((hook, i) => {
     let displayValue = formatStateValue(hook.value);
+    const hookType = hook.type || 'unknown';
+    const typeColors = {
+      useState: '#66bb6a',
+      useReducer: '#ffa726',
+      useRef: '#42a5f5',
+      useMemo: '#ab47bc',
+      useCallback: '#ab47bc',
+      unknown: '#81c784',
+    };
+    const typeColor = typeColors[hookType] || typeColors.unknown;
+    const typeLabel = hookType !== 'unknown' ? hookType : `Hook ${i}`;
     html += `<div style="margin: 6px 0; padding: 6px; background: rgba(255,255,255,0.02); border-radius: 3px;">`;
-    html += `<div style="color: #81c784; font-weight: bold; margin-bottom: 4px;">Hook ${i}:</div>`;
+    html += `<div style="font-weight: bold; margin-bottom: 4px;"><span style="color: ${typeColor};">${typeLabel}</span><span style="color: #666; font-size: 9px; margin-left: 4px;">#${hook.index !== undefined ? hook.index : i}</span></div>`;
     html += `<div class="editable-hook" data-hook-index="${i}" contenteditable="true" spellcheck="false" style="color: #a5d6a7; font-size: 11px; white-space: pre-wrap; padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid transparent; border-radius: 3px; cursor: text; font-family: 'Courier New', monospace; transition: all 0.2s; max-height: 400px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(102,187,106,0.5) rgba(0,0,0,0.3);" title="Edit directly (Enter to save, Esc to cancel)">${escapeHtml(displayValue)}</div>`;
     html += `</div>`;
   });

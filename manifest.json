@@ -4,6 +4,12 @@
   "version": "1.0.7",
   "description": "Hover-based component inspector with performance profiling and advanced tracking for React, Vue, and Svelte",
   "permissions": [],
+  "action": {
+    "default_title": "Toggle Dev Inspector"
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
   "host_permissions": [
     "http://*/*",
     "https://*/*"
@@ -59,5 +65,14 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+C",
+        "mac": "Alt+Shift+C"
+      },
+      "description": "Toggle Dev Inspector on current tab"
+    }
   }
 }

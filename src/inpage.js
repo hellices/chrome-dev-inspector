@@ -13,26 +13,63 @@
 
   // Import detection utilities (inline for injection)
   const detectComponent = (function () {
+    // React DevTools Global Hook utilities
+    function getDevToolsHook() {
+      try {
+        const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+        if (!hook || !hook.renderers) return null;
+        // Get the first renderer (usually the only one)
+        const renderer = hook.renderers.get(1) || hook.renderers.values().next().value;
+        return renderer || null;
+      } catch {
+        return null;
+      }
+    }
+
+    function getDisplayNameFromDevTools(fiber, renderer) {
+      try {
+        if (renderer && typeof renderer.getDisplayNameForFiber === 'function') {
+          return renderer.getDisplayNameForFiber(fiber);
+        }
+      } catch { /* ignored */ }
+      return null;
+    }
+
+    function findFiberByDevTools(node) {
+      try {
+        const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+        if (!hook) return null;
+        // Try to find fiber via DevTools internals
+        if (typeof hook.getFiberForNative === 'function') {
+          return hook.getFiberForNative(node);
+        }
+        // Some versions use different method names
+        const renderer = getDevToolsHook();
+        if (renderer && typeof renderer.findFiberByHostInstance === 'function') {
+          return renderer.findFiberByHostInstance(node);
+        }
+      } catch { /* ignored */ }
+      return null;
+    }
+
     function detectReact(node) {
       try {
-        // 1. Check for DevTools Hook (optional - continue even if not present)
-        // NOTE: This detection works in both development and production builds.
-        // In production, React DevTools hook may not be available, but we can still
-        // detect React components via the fiber properties (__reactFiber or __reactInternalInstance).
-        // This allows the extension to work on production sites, though with potentially
-        // less accurate user component detection due to missing source metadata.
+        const devToolsRenderer = getDevToolsHook();
 
-        // 2. Find Fiber - __reactFiber or __reactInternalInstance
-        const fiberKey = Object.keys(node).find((key) => 
-          key.startsWith('__reactFiber') || 
-          key.startsWith('__reactInternalInstance')
-        );
+        // Find Fiber - try DevTools first, then fallback to DOM properties
+        let fiber = findFiberByDevTools(node);
         
-        if (!fiberKey) {
-          return null;
+        if (!fiber) {
+          const fiberKey = Object.keys(node).find((key) => 
+            key.startsWith('__reactFiber') || 
+            key.startsWith('__reactInternalInstance')
+          );
+          
+          if (!fiberKey) {
+            return null;
+          }
+          fiber = node[fiberKey];
         }
-
-        let fiber = node[fiberKey];
         let componentHierarchy = [];
 
         while (fiber) {
@@ -52,7 +89,8 @@
 
           // Skip built-in types
           if (typeof componentType === 'function') {
-            const name = componentType.displayName || componentType.name || 'Component';
+            const name = getDisplayNameFromDevTools(fiber, devToolsRenderer) 
+              || componentType.displayName || componentType.name || 'Component';
 
             // Production build support: use more permissive filtering
             const isValidName = name && 
@@ -295,18 +333,92 @@
       return null;
     }
 
+    function classifyHookType(hook) {
+      // Classify React hook type based on internal structure
+      // React uses hook.tag internally but it's not always reliable,
+      // so we combine structural analysis with tag hints
+
+      const ms = hook.memoizedState;
+
+      // useRef: memoizedState is { current: ... }
+      if (ms !== null && typeof ms === 'object' && 'current' in ms && !hook.queue && !hook.next?.queue) {
+        // Distinguish from useState whose memoizedState can be an object
+        // useRef has no queue
+        if (!hook.queue) return 'useRef';
+      }
+
+      // useState / useReducer: has a queue with dispatch
+      if (hook.queue) {
+        // useReducer has queue.lastRenderedReducer that isn't the basic state reducer
+        const reducer = hook.queue.lastRenderedReducer;
+        if (reducer && reducer.name && reducer.name !== 'basicStateReducer' && reducer.name !== '') {
+          return 'useReducer';
+        }
+        return 'useState';
+      }
+
+      // useMemo / useCallback: memoizedState is [value, deps]
+      if (Array.isArray(ms) && ms.length === 2 && Array.isArray(ms[1])) {
+        // useCallback stores a function as ms[0]
+        if (typeof ms[0] === 'function') return 'useCallback';
+        return 'useMemo';
+      }
+
+      // useEffect / useLayoutEffect: memoizedState has .destroy and .create
+      if (ms !== null && typeof ms === 'object' && 'create' in ms && 'destroy' in ms) {
+        // useLayoutEffect has tag with HookLayout flag (0b0100 = 4)
+        // useEffect has HookPassive flag (0b1000 = 8)  
+        if (ms.tag & 4) return 'useLayoutEffect';
+        return 'useEffect';
+      }
+
+      // useContext: no memoizedState typically, or the context value directly
+      // Hard to distinguish reliably, mark as unknown
+      return 'unknown';
+    }
+
+    function extractHookValue(hook, hookType) {
+      const ms = hook.memoizedState;
+
+      switch (hookType) {
+        case 'useState':
+        case 'useReducer':
+          return sanitizeValue(ms);
+        case 'useRef':
+          return sanitizeValue(ms?.current);
+        case 'useMemo':
+          return sanitizeValue(Array.isArray(ms) ? ms[0] : ms);
+        case 'useCallback':
+          return '[Function: ' + (ms?.[0]?.name || 'anonymous') + ']';
+        case 'useEffect':
+        case 'useLayoutEffect':
+          return undefined; // Effects don't have meaningful display values
+        default:
+          return sanitizeValue(ms);
+      }
+    }
+
     function extractHooks(fiber) {
       try {
         const hooks = [];
         let hook = fiber.memoizedState;
+        let index = 0;
 
         while (hook) {
-          if (hook.memoizedState !== undefined) {
+          const hookType = classifyHookType(hook);
+          const value = extractHookValue(hook, hookType);
+
+          // Skip effects and unknown hooks with undefined values
+          if (hookType !== 'useEffect' && hookType !== 'useLayoutEffect' && value !== undefined) {
             hooks.push({
-              value: sanitizeValue(hook.memoizedState),
+              type: hookType,
+              index: index,
+              value: value,
             });
           }
+
           hook = hook.next;
+          index++;
         }
 
         return hooks;
@@ -348,57 +460,67 @@
       return null;
     }
 
-    function sanitizeValue(value) {
+        const MAX_SERIALIZE_DEPTH = 5;
+    const MAX_ARRAY_ITEMS = 50;
+    const MAX_OBJECT_KEYS = 30;
+
+    function deepClone(value, depth, seen) {
+      if (depth > MAX_SERIALIZE_DEPTH) return '[...]';
       if (value === null) return null;
       if (value === undefined) return 'undefined';
-      if (typeof value === 'function') return '[Function]';
+      if (typeof value === 'function') return '[Function: ' + (value.name || 'anonymous') + ']';
       if (typeof value === 'symbol') return '[Symbol]';
       if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
         return value;
       }
-      if (typeof value === 'object') {
+      if (value instanceof HTMLElement || value instanceof Node) {
+        return '[' + value.constructor.name + ': ' + (value.tagName || '').toLowerCase() + ']';
+      }
+      if (typeof value !== 'object') return String(value);
+
+      // Circular reference detection
+      if (seen.has(value)) return '[Circular]';
+      seen.add(value);
+
+      if (Array.isArray(value)) {
+        const result = value.slice(0, MAX_ARRAY_ITEMS).map(v => deepClone(v, depth + 1, seen));
+        if (value.length > MAX_ARRAY_ITEMS) result.push(`... +${value.length - MAX_ARRAY_ITEMS} items`);
+        seen.delete(value);
+        return result;
+      }
+
+      const result = {};
+      const keys = Object.keys(value).slice(0, MAX_OBJECT_KEYS);
+      for (const key of keys) {
         try {
-          return JSON.parse(JSON.stringify(value));
-        } catch (e) {
-          return '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
+          result[key] = deepClone(value[key], depth + 1, seen);
+        } catch {
+          result[key] = '[Error reading property]';
         }
       }
-      return String(value);
+      const totalKeys = Object.keys(value).length;
+      if (totalKeys > MAX_OBJECT_KEYS) {
+        result['...'] = `+${totalKeys - MAX_OBJECT_KEYS} more keys`;
+      }
+      seen.delete(value);
+      return result;
+    }
+
+    function sanitizeValue(value) {
+      return deepClone(value, 0, new WeakSet());
     }
 
     function sanitizeProps(props) {
       const sanitized = {};
       for (const key in props) {
-        // Skip symbol keys
         if (typeof key === 'symbol') continue;
 
         const value = props[key];
 
         if (key === 'children') {
           sanitized[key] = typeof value === 'object' ? '[React Children]' : String(value);
-        } else if (typeof value === 'function') {
-          sanitized[key] = '[Function: ' + (value.name || 'anonymous') + ']';
-        } else if (typeof value === 'symbol') {
-          sanitized[key] = '[Symbol: ' + value.toString() + ']';
-        } else if (typeof value === 'undefined') {
-          sanitized[key] = 'undefined';
-        } else if (value === null) {
-          sanitized[key] = null;
-        } else if (typeof value === 'object') {
-          try {
-            // Check for circular references and symbols
-            sanitized[key] = JSON.parse(JSON.stringify(value));
-          } catch (e) {
-            sanitized[key] = '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
-          }
-        } else if (
-          typeof value === 'string' ||
-          typeof value === 'number' ||
-          typeof value === 'boolean'
-        ) {
-          sanitized[key] = value;
         } else {
-          sanitized[key] = String(value);
+          sanitized[key] = sanitizeValue(value);
         }
       }
       return sanitized;

@@ -126,15 +126,20 @@ export function handleScroll(state, resetOverlayStateFn, updateOverlayOnScrollFn
  * Handle keyboard shortcut events
  */
 export function handleKeyDown(event, state, toggleEnabledFn, hideOverlayFns) {
-  // Alt+Shift+C to toggle inspector
+  // Alt+Shift+C to toggle inspector (delegate to background for state sync)
   const { altKey, shiftKey, code } = TOGGLE_SHORTCUT;
   if (event.altKey === altKey && event.shiftKey === shiftKey && event.code === code) {
     event.preventDefault();
-    toggleEnabledFn(
-      hideOverlayFns.hideOverlay,
-      hideOverlayFns.hideReactOverlay,
-      hideOverlayFns.hideVueOverlay
-    );
+    try {
+      chrome.runtime.sendMessage({ type: 'INSPECTOR_TOGGLE_REQUEST' });
+    } catch {
+      // Fallback to local toggle if background unreachable
+      toggleEnabledFn(
+        hideOverlayFns.hideOverlay,
+        hideOverlayFns.hideReactOverlay,
+        hideOverlayFns.hideVueOverlay
+      );
+    }
   }
 
   // Alt+Shift+M to toggle mode selector

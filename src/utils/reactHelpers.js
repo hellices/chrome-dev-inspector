@@ -134,22 +134,94 @@ export function isUserComponent(score, isKnownFramework, hasFrameworkPattern) {
 }
 
 /**
- * Extract hooks from React fiber
+ * Classify React hook type based on internal structure
+ * @param {Object} hook - React hook object
+ * @returns {string} Hook type name
+ */
+export function classifyHookType(hook) {
+  const ms = hook.memoizedState;
+
+  // useRef: memoizedState is { current: ... } with no queue
+  if (ms !== null && typeof ms === 'object' && 'current' in ms && !hook.queue) {
+    return 'useRef';
+  }
+
+  // useState / useReducer: has a queue with dispatch
+  if (hook.queue) {
+    const reducer = hook.queue.lastRenderedReducer;
+    if (reducer && reducer.name && reducer.name !== 'basicStateReducer' && reducer.name !== '') {
+      return 'useReducer';
+    }
+    return 'useState';
+  }
+
+  // useMemo / useCallback: memoizedState is [value, deps]
+  if (Array.isArray(ms) && ms.length === 2 && Array.isArray(ms[1])) {
+    if (typeof ms[0] === 'function') return 'useCallback';
+    return 'useMemo';
+  }
+
+  // useEffect / useLayoutEffect: has .create and .destroy
+  if (ms !== null && typeof ms === 'object' && 'create' in ms && 'destroy' in ms) {
+    if (ms.tag & 4) return 'useLayoutEffect';
+    return 'useEffect';
+  }
+
+  return 'unknown';
+}
+
+/**
+ * Extract displayable value from a hook based on its type
+ * @param {Object} hook - React hook object
+ * @param {string} hookType - Classified hook type
+ * @returns {*} Extracted value
+ */
+export function extractHookValue(hook, hookType) {
+  const ms = hook.memoizedState;
+
+  switch (hookType) {
+    case 'useState':
+    case 'useReducer':
+      return sanitizeValue(ms);
+    case 'useRef':
+      return sanitizeValue(ms?.current);
+    case 'useMemo':
+      return sanitizeValue(Array.isArray(ms) ? ms[0] : ms);
+    case 'useCallback':
+      return '[Function: ' + (ms?.[0]?.name || 'anonymous') + ']';
+    case 'useEffect':
+    case 'useLayoutEffect':
+      return undefined;
+    default:
+      return sanitizeValue(ms);
+  }
+}
+
+/**
+ * Extract hooks from React fiber with type classification
  * @param {Object} fiber - React fiber object
- * @returns {Array} Array of hook information
+ * @returns {Array} Array of hook information with types
  */
 export function extractHooks(fiber) {
   try {
     const hooks = [];
     let hook = fiber.memoizedState;
+    let index = 0;
 
     while (hook) {
-      if (hook.memoizedState !== undefined) {
+      const hookType = classifyHookType(hook);
+      const value = extractHookValue(hook, hookType);
+
+      if (hookType !== 'useEffect' && hookType !== 'useLayoutEffect' && value !== undefined) {
         hooks.push({
-          value: sanitizeValue(hook.memoizedState),
+          type: hookType,
+          index: index,
+          value: value,
         });
       }
+
       hook = hook.next;
+      index++;
     }
 
     return hooks;
@@ -158,27 +230,54 @@ export function extractHooks(fiber) {
   }
 }
 
-/**
- * Sanitize a value for serialization
- * @param {*} value - Value to sanitize
- * @returns {*} Sanitized value
- */
-export function sanitizeValue(value) {
+const MAX_SERIALIZE_DEPTH = 5;
+const MAX_ARRAY_ITEMS = 50;
+const MAX_OBJECT_KEYS = 30;
+
+function deepClone(value, depth, seen) {
+  if (depth > MAX_SERIALIZE_DEPTH) return '[...]';
   if (value === null) return null;
   if (value === undefined) return 'undefined';
-  if (typeof value === 'function') return '[Function]';
+  if (typeof value === 'function') return '[Function: ' + (value.name || 'anonymous') + ']';
   if (typeof value === 'symbol') return '[Symbol]';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return value;
   }
-  if (typeof value === 'object') {
+  if (typeof value !== 'object') return String(value);
+  if (seen.has(value)) return '[Circular]';
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    const result = value.slice(0, MAX_ARRAY_ITEMS).map(v => deepClone(v, depth + 1, seen));
+    if (value.length > MAX_ARRAY_ITEMS) result.push(`... +${value.length - MAX_ARRAY_ITEMS} items`);
+    seen.delete(value);
+    return result;
+  }
+
+  const result = {};
+  const keys = Object.keys(value).slice(0, MAX_OBJECT_KEYS);
+  for (const key of keys) {
     try {
-      return JSON.parse(JSON.stringify(value));
-    } catch (e) {
-      return '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
+      result[key] = deepClone(value[key], depth + 1, seen);
+    } catch {
+      result[key] = '[Error reading property]';
     }
   }
-  return String(value);
+  const totalKeys = Object.keys(value).length;
+  if (totalKeys > MAX_OBJECT_KEYS) {
+    result['...'] = `+${totalKeys - MAX_OBJECT_KEYS} more keys`;
+  }
+  seen.delete(value);
+  return result;
+}
+
+/**
+ * Sanitize a value for serialization (depth-limited, circular-safe)
+ * @param {*} value - Value to sanitize
+ * @returns {*} Sanitized value
+ */
+export function sanitizeValue(value) {
+  return deepClone(value, 0, new WeakSet());
 }
 
 /**
@@ -189,35 +288,12 @@ export function sanitizeValue(value) {
 export function sanitizeProps(props) {
   const sanitized = {};
   for (const key in props) {
-    // Skip symbol keys
     if (typeof key === 'symbol') continue;
-
     const value = props[key];
-
     if (key === 'children') {
       sanitized[key] = typeof value === 'object' ? '[React Children]' : String(value);
-    } else if (typeof value === 'function') {
-      sanitized[key] = '[Function: ' + (value.name || 'anonymous') + ']';
-    } else if (typeof value === 'symbol') {
-      sanitized[key] = '[Symbol: ' + value.toString() + ']';
-    } else if (typeof value === 'undefined') {
-      sanitized[key] = 'undefined';
-    } else if (value === null) {
-      sanitized[key] = null;
-    } else if (typeof value === 'object') {
-      try {
-        sanitized[key] = JSON.parse(JSON.stringify(value));
-      } catch (e) {
-        sanitized[key] = '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
-      }
-    } else if (
-      typeof value === 'string' ||
-      typeof value === 'number' ||
-      typeof value === 'boolean'
-    ) {
-      sanitized[key] = value;
     } else {
-      sanitized[key] = String(value);
+      sanitized[key] = sanitizeValue(value);
     }
   }
   return sanitized;

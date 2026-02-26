@@ -154,14 +154,74 @@ export function extractSvelteState(component) {
     if (component.$$ && component.$$.ctx) {
       const ctx = component.$$.ctx;
       
-      // Extract state from context
-      // Svelte uses a flat array for state, so we need to be careful
       if (Array.isArray(ctx)) {
-        // Try to extract meaningful values
-        ctx.forEach((value, index) => {
-          if (value !== null && value !== undefined && typeof value !== 'function') {
-            state[`state_${index}`] = sanitizeValue(value);
+        // Build a map of known prop indices to exclude from state
+        const propIndices = new Set();
+        if (component.$$.props) {
+          for (const propName in component.$$.props) {
+            propIndices.add(component.$$.props[propName]);
           }
+        }
+        
+        // Try to recover variable names from $$.vars (Svelte dev mode)
+        const varNames = {};
+        if (component.$$.vars) {
+          // $$.vars is available in dev mode: array of { name, index, ... }
+          component.$$.vars.forEach((v) => {
+            if (v && v.name && typeof v.index === 'number') {
+              varNames[v.index] = v.name;
+            }
+          });
+        }
+        
+        // Try to recover from $$set parameter names (compiled components)
+        if (Object.keys(varNames).length === 0 && component.$$set) {
+          try {
+            const setStr = component.$$set.toString();
+            // Pattern: $$set = $$props => { if ('name' in $$props) ... }
+            const propPattern = /['"](\w+)['"]\s*in\s*\$\$props/g;
+            let match;
+            while ((match = propPattern.exec(setStr)) !== null) {
+              // These are props, not state - but helps identify what's what
+            }
+          } catch { /* ignored */ }
+        }
+        
+        // Try to recover variable names from bound callbacks
+        if (component.$$.bound && Object.keys(varNames).length === 0) {
+          for (const key in component.$$.bound) {
+            const boundFn = component.$$.bound[key];
+            if (typeof boundFn === 'function') {
+              // Bound function name might hint at the variable
+              try {
+                const fnStr = boundFn.toString();
+                // Pattern: ctx[index] = value or $$invalidate(index, name = value)
+                const invalidateMatch = fnStr.match(/\$\$invalidate\((\d+)/);
+                if (invalidateMatch) {
+                  const idx = parseInt(invalidateMatch[1]);
+                  if (!varNames[idx]) {
+                    varNames[idx] = key;
+                  }
+                }
+              } catch { /* ignored */ }
+            }
+          }
+        }
+        
+        // Try to recover from callbacks (event handlers reference state variables)
+        if (component.$$.callbacks && Object.keys(varNames).length === 0) {
+          // callbacks can give hints about which indices correspond to which names
+        }
+        
+        ctx.forEach((value, index) => {
+          // Skip props (already extracted separately), functions, and DOM elements
+          if (propIndices.has(index)) return;
+          if (value === null || value === undefined) return;
+          if (typeof value === 'function') return;
+          if (value instanceof HTMLElement || value instanceof Node) return;
+          
+          const name = varNames[index] || `state_${index}`;
+          state[name] = sanitizeValue(value);
         });
       }
     }
