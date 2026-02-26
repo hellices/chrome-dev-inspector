@@ -31,7 +31,7 @@
         if (renderer && typeof renderer.getDisplayNameForFiber === 'function') {
           return renderer.getDisplayNameForFiber(fiber);
         }
-      } catch {}
+      } catch { /* ignored */ }
       return null;
     }
 
@@ -48,7 +48,7 @@
         if (renderer && typeof renderer.findFiberByHostInstance === 'function') {
           return renderer.findFiberByHostInstance(node);
         }
-      } catch {}
+      } catch { /* ignored */ }
       return null;
     }
 

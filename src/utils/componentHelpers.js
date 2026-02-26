@@ -60,7 +60,7 @@ function deepClone(value, depth, seen, options = {}) {
       if (value.__v_isReactive || value.__v_isReadonly) {
         value = value.__v_raw || value;
       }
-    } catch {}
+    } catch { /* ignored */ }
   }
 
   if (seen.has(value)) return '[Circular]';

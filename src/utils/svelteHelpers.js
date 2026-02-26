@@ -184,7 +184,7 @@ export function extractSvelteState(component) {
             while ((match = propPattern.exec(setStr)) !== null) {
               // These are props, not state - but helps identify what's what
             }
-          } catch {}
+          } catch { /* ignored */ }
         }
         
         // Try to recover variable names from bound callbacks
@@ -203,7 +203,7 @@ export function extractSvelteState(component) {
                     varNames[idx] = key;
                   }
                 }
-              } catch {}
+              } catch { /* ignored */ }
             }
           }
         }

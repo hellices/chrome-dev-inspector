@@ -557,7 +557,7 @@ function detectSvelte5FromElement(element) {
       }
       current = current.parentElement;
     }
-  } catch {}
+  } catch { /* ignored */ }
   return null;
 }
 
