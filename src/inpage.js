@@ -295,18 +295,92 @@
       return null;
     }
 
+    function classifyHookType(hook) {
+      // Classify React hook type based on internal structure
+      // React uses hook.tag internally but it's not always reliable,
+      // so we combine structural analysis with tag hints
+
+      const ms = hook.memoizedState;
+
+      // useRef: memoizedState is { current: ... }
+      if (ms !== null && typeof ms === 'object' && 'current' in ms && !hook.queue && !hook.next?.queue) {
+        // Distinguish from useState whose memoizedState can be an object
+        // useRef has no queue
+        if (!hook.queue) return 'useRef';
+      }
+
+      // useState / useReducer: has a queue with dispatch
+      if (hook.queue) {
+        // useReducer has queue.lastRenderedReducer that isn't the basic state reducer
+        const reducer = hook.queue.lastRenderedReducer;
+        if (reducer && reducer.name && reducer.name !== 'basicStateReducer' && reducer.name !== '') {
+          return 'useReducer';
+        }
+        return 'useState';
+      }
+
+      // useMemo / useCallback: memoizedState is [value, deps]
+      if (Array.isArray(ms) && ms.length === 2 && Array.isArray(ms[1])) {
+        // useCallback stores a function as ms[0]
+        if (typeof ms[0] === 'function') return 'useCallback';
+        return 'useMemo';
+      }
+
+      // useEffect / useLayoutEffect: memoizedState has .destroy and .create
+      if (ms !== null && typeof ms === 'object' && 'create' in ms && 'destroy' in ms) {
+        // useLayoutEffect has tag with HookLayout flag (0b0100 = 4)
+        // useEffect has HookPassive flag (0b1000 = 8)  
+        if (ms.tag & 4) return 'useLayoutEffect';
+        return 'useEffect';
+      }
+
+      // useContext: no memoizedState typically, or the context value directly
+      // Hard to distinguish reliably, mark as unknown
+      return 'unknown';
+    }
+
+    function extractHookValue(hook, hookType) {
+      const ms = hook.memoizedState;
+
+      switch (hookType) {
+        case 'useState':
+        case 'useReducer':
+          return sanitizeValue(ms);
+        case 'useRef':
+          return sanitizeValue(ms?.current);
+        case 'useMemo':
+          return sanitizeValue(Array.isArray(ms) ? ms[0] : ms);
+        case 'useCallback':
+          return '[Function: ' + (ms?.[0]?.name || 'anonymous') + ']';
+        case 'useEffect':
+        case 'useLayoutEffect':
+          return undefined; // Effects don't have meaningful display values
+        default:
+          return sanitizeValue(ms);
+      }
+    }
+
     function extractHooks(fiber) {
       try {
         const hooks = [];
         let hook = fiber.memoizedState;
+        let index = 0;
 
         while (hook) {
-          if (hook.memoizedState !== undefined) {
+          const hookType = classifyHookType(hook);
+          const value = extractHookValue(hook, hookType);
+
+          // Skip effects and unknown hooks with undefined values
+          if (hookType !== 'useEffect' && hookType !== 'useLayoutEffect' && value !== undefined) {
             hooks.push({
-              value: sanitizeValue(hook.memoizedState),
+              type: hookType,
+              index: index,
+              value: value,
             });
           }
+
           hook = hook.next;
+          index++;
         }
 
         return hooks;

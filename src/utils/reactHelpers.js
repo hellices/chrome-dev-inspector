@@ -134,22 +134,94 @@ export function isUserComponent(score, isKnownFramework, hasFrameworkPattern) {
 }
 
 /**
- * Extract hooks from React fiber
+ * Classify React hook type based on internal structure
+ * @param {Object} hook - React hook object
+ * @returns {string} Hook type name
+ */
+export function classifyHookType(hook) {
+  const ms = hook.memoizedState;
+
+  // useRef: memoizedState is { current: ... } with no queue
+  if (ms !== null && typeof ms === 'object' && 'current' in ms && !hook.queue) {
+    return 'useRef';
+  }
+
+  // useState / useReducer: has a queue with dispatch
+  if (hook.queue) {
+    const reducer = hook.queue.lastRenderedReducer;
+    if (reducer && reducer.name && reducer.name !== 'basicStateReducer' && reducer.name !== '') {
+      return 'useReducer';
+    }
+    return 'useState';
+  }
+
+  // useMemo / useCallback: memoizedState is [value, deps]
+  if (Array.isArray(ms) && ms.length === 2 && Array.isArray(ms[1])) {
+    if (typeof ms[0] === 'function') return 'useCallback';
+    return 'useMemo';
+  }
+
+  // useEffect / useLayoutEffect: has .create and .destroy
+  if (ms !== null && typeof ms === 'object' && 'create' in ms && 'destroy' in ms) {
+    if (ms.tag & 4) return 'useLayoutEffect';
+    return 'useEffect';
+  }
+
+  return 'unknown';
+}
+
+/**
+ * Extract displayable value from a hook based on its type
+ * @param {Object} hook - React hook object
+ * @param {string} hookType - Classified hook type
+ * @returns {*} Extracted value
+ */
+export function extractHookValue(hook, hookType) {
+  const ms = hook.memoizedState;
+
+  switch (hookType) {
+    case 'useState':
+    case 'useReducer':
+      return sanitizeValue(ms);
+    case 'useRef':
+      return sanitizeValue(ms?.current);
+    case 'useMemo':
+      return sanitizeValue(Array.isArray(ms) ? ms[0] : ms);
+    case 'useCallback':
+      return '[Function: ' + (ms?.[0]?.name || 'anonymous') + ']';
+    case 'useEffect':
+    case 'useLayoutEffect':
+      return undefined;
+    default:
+      return sanitizeValue(ms);
+  }
+}
+
+/**
+ * Extract hooks from React fiber with type classification
  * @param {Object} fiber - React fiber object
- * @returns {Array} Array of hook information
+ * @returns {Array} Array of hook information with types
  */
 export function extractHooks(fiber) {
   try {
     const hooks = [];
     let hook = fiber.memoizedState;
+    let index = 0;
 
     while (hook) {
-      if (hook.memoizedState !== undefined) {
+      const hookType = classifyHookType(hook);
+      const value = extractHookValue(hook, hookType);
+
+      if (hookType !== 'useEffect' && hookType !== 'useLayoutEffect' && value !== undefined) {
         hooks.push({
-          value: sanitizeValue(hook.memoizedState),
+          type: hookType,
+          index: index,
+          value: value,
         });
       }
+
       hook = hook.next;
+      index++;
     }
 
     return hooks;
