@@ -13,26 +13,63 @@
 
   // Import detection utilities (inline for injection)
   const detectComponent = (function () {
+    // React DevTools Global Hook utilities
+    function getDevToolsHook() {
+      try {
+        const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+        if (!hook || !hook.renderers) return null;
+        // Get the first renderer (usually the only one)
+        const renderer = hook.renderers.get(1) || hook.renderers.values().next().value;
+        return renderer || null;
+      } catch {
+        return null;
+      }
+    }
+
+    function getDisplayNameFromDevTools(fiber, renderer) {
+      try {
+        if (renderer && typeof renderer.getDisplayNameForFiber === 'function') {
+          return renderer.getDisplayNameForFiber(fiber);
+        }
+      } catch {}
+      return null;
+    }
+
+    function findFiberByDevTools(node) {
+      try {
+        const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+        if (!hook) return null;
+        // Try to find fiber via DevTools internals
+        if (typeof hook.getFiberForNative === 'function') {
+          return hook.getFiberForNative(node);
+        }
+        // Some versions use different method names
+        const renderer = getDevToolsHook();
+        if (renderer && typeof renderer.findFiberByHostInstance === 'function') {
+          return renderer.findFiberByHostInstance(node);
+        }
+      } catch {}
+      return null;
+    }
+
     function detectReact(node) {
       try {
-        // 1. Check for DevTools Hook (optional - continue even if not present)
-        // NOTE: This detection works in both development and production builds.
-        // In production, React DevTools hook may not be available, but we can still
-        // detect React components via the fiber properties (__reactFiber or __reactInternalInstance).
-        // This allows the extension to work on production sites, though with potentially
-        // less accurate user component detection due to missing source metadata.
+        const devToolsRenderer = getDevToolsHook();
 
-        // 2. Find Fiber - __reactFiber or __reactInternalInstance
-        const fiberKey = Object.keys(node).find((key) => 
-          key.startsWith('__reactFiber') || 
-          key.startsWith('__reactInternalInstance')
-        );
+        // Find Fiber - try DevTools first, then fallback to DOM properties
+        let fiber = findFiberByDevTools(node);
         
-        if (!fiberKey) {
-          return null;
+        if (!fiber) {
+          const fiberKey = Object.keys(node).find((key) => 
+            key.startsWith('__reactFiber') || 
+            key.startsWith('__reactInternalInstance')
+          );
+          
+          if (!fiberKey) {
+            return null;
+          }
+          fiber = node[fiberKey];
         }
-
-        let fiber = node[fiberKey];
         let componentHierarchy = [];
 
         while (fiber) {
@@ -52,7 +89,8 @@
 
           // Skip built-in types
           if (typeof componentType === 'function') {
-            const name = componentType.displayName || componentType.name || 'Component';
+            const name = getDisplayNameFromDevTools(fiber, devToolsRenderer) 
+              || componentType.displayName || componentType.name || 'Component';
 
             // Production build support: use more permissive filtering
             const isValidName = name && 
