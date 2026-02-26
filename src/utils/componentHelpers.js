@@ -38,49 +38,67 @@ export function parseValue(value) {
   }
 }
 
-/**
- * Sanitize a value for serialization
- * @param {*} value - Value to sanitize
- * @param {Object} options - Options for sanitization
- * @param {boolean} options.isVue - Whether this is a Vue component (handles reactive objects)
- * @returns {*} Sanitized value
- */
-export function sanitizeValue(value, options = {}) {
+const MAX_SERIALIZE_DEPTH = 5;
+const MAX_ARRAY_ITEMS = 50;
+const MAX_OBJECT_KEYS = 30;
+
+function deepClone(value, depth, seen, options = {}) {
+  if (depth > MAX_SERIALIZE_DEPTH) return '[...]';
   if (value === null) return null;
   if (value === undefined) return 'undefined';
-  if (typeof value === 'function') return '[Function]';
+  if (typeof value === 'function') return '[Function: ' + (value.name || 'anonymous') + ']';
   if (typeof value === 'symbol') return '[Symbol]';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return value;
   }
-  if (typeof value === 'object') {
-    // Handle Vue reactive objects if isVue is true
-    if (options.isVue) {
-      try {
-        if (value.__v_isRef) {
-          return sanitizeValue(value.value, options);
-        }
-        if (value.__v_isReactive || value.__v_isReadonly) {
-          try {
-            // Extract raw value from Vue 3 reactive proxy
-            const raw = value.__v_raw || value;
-            return JSON.parse(JSON.stringify(raw));
-          } catch (e) {
-            return '[Reactive: ' + (value.constructor?.name || 'Object') + ']';
-          }
-        }
-      } catch (e) {
-        // If Vue internals change or access fails, fall through to generic serialization below
-        // This protects against breaking changes in future Vue versions
-      }
-    }
+  if (typeof value !== 'object') return String(value);
+
+  // Handle Vue reactive objects
+  if (options.isVue) {
     try {
-      return JSON.parse(JSON.stringify(value));
-    } catch (e) {
-      return '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
+      if (value.__v_isRef) return deepClone(value.value, depth, seen, options);
+      if (value.__v_isReactive || value.__v_isReadonly) {
+        value = value.__v_raw || value;
+      }
+    } catch {}
+  }
+
+  if (seen.has(value)) return '[Circular]';
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    const result = value.slice(0, MAX_ARRAY_ITEMS).map(v => deepClone(v, depth + 1, seen, options));
+    if (value.length > MAX_ARRAY_ITEMS) result.push(`... +${value.length - MAX_ARRAY_ITEMS} items`);
+    seen.delete(value);
+    return result;
+  }
+
+  const result = {};
+  const keys = Object.keys(value).slice(0, MAX_OBJECT_KEYS);
+  for (const key of keys) {
+    try {
+      result[key] = deepClone(value[key], depth + 1, seen, options);
+    } catch {
+      result[key] = '[Error reading property]';
     }
   }
-  return String(value);
+  const totalKeys = Object.keys(value).length;
+  if (totalKeys > MAX_OBJECT_KEYS) {
+    result['...'] = `+${totalKeys - MAX_OBJECT_KEYS} more keys`;
+  }
+  seen.delete(value);
+  return result;
+}
+
+/**
+ * Sanitize a value for serialization (depth-limited, circular-safe)
+ * @param {*} value - Value to sanitize
+ * @param {Object} options - Options for sanitization
+ * @param {boolean} options.isVue - Whether this is a Vue component
+ * @returns {*} Sanitized value
+ */
+export function sanitizeValue(value, options = {}) {
+  return deepClone(value, 0, new WeakSet(), options);
 }
 
 /**

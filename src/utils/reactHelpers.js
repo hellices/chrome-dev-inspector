@@ -230,27 +230,54 @@ export function extractHooks(fiber) {
   }
 }
 
-/**
- * Sanitize a value for serialization
- * @param {*} value - Value to sanitize
- * @returns {*} Sanitized value
- */
-export function sanitizeValue(value) {
+const MAX_SERIALIZE_DEPTH = 5;
+const MAX_ARRAY_ITEMS = 50;
+const MAX_OBJECT_KEYS = 30;
+
+function deepClone(value, depth, seen) {
+  if (depth > MAX_SERIALIZE_DEPTH) return '[...]';
   if (value === null) return null;
   if (value === undefined) return 'undefined';
-  if (typeof value === 'function') return '[Function]';
+  if (typeof value === 'function') return '[Function: ' + (value.name || 'anonymous') + ']';
   if (typeof value === 'symbol') return '[Symbol]';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return value;
   }
-  if (typeof value === 'object') {
+  if (typeof value !== 'object') return String(value);
+  if (seen.has(value)) return '[Circular]';
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    const result = value.slice(0, MAX_ARRAY_ITEMS).map(v => deepClone(v, depth + 1, seen));
+    if (value.length > MAX_ARRAY_ITEMS) result.push(`... +${value.length - MAX_ARRAY_ITEMS} items`);
+    seen.delete(value);
+    return result;
+  }
+
+  const result = {};
+  const keys = Object.keys(value).slice(0, MAX_OBJECT_KEYS);
+  for (const key of keys) {
     try {
-      return JSON.parse(JSON.stringify(value));
-    } catch (e) {
-      return '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
+      result[key] = deepClone(value[key], depth + 1, seen);
+    } catch {
+      result[key] = '[Error reading property]';
     }
   }
-  return String(value);
+  const totalKeys = Object.keys(value).length;
+  if (totalKeys > MAX_OBJECT_KEYS) {
+    result['...'] = `+${totalKeys - MAX_OBJECT_KEYS} more keys`;
+  }
+  seen.delete(value);
+  return result;
+}
+
+/**
+ * Sanitize a value for serialization (depth-limited, circular-safe)
+ * @param {*} value - Value to sanitize
+ * @returns {*} Sanitized value
+ */
+export function sanitizeValue(value) {
+  return deepClone(value, 0, new WeakSet());
 }
 
 /**
@@ -261,35 +288,12 @@ export function sanitizeValue(value) {
 export function sanitizeProps(props) {
   const sanitized = {};
   for (const key in props) {
-    // Skip symbol keys
     if (typeof key === 'symbol') continue;
-
     const value = props[key];
-
     if (key === 'children') {
       sanitized[key] = typeof value === 'object' ? '[React Children]' : String(value);
-    } else if (typeof value === 'function') {
-      sanitized[key] = '[Function: ' + (value.name || 'anonymous') + ']';
-    } else if (typeof value === 'symbol') {
-      sanitized[key] = '[Symbol: ' + value.toString() + ']';
-    } else if (typeof value === 'undefined') {
-      sanitized[key] = 'undefined';
-    } else if (value === null) {
-      sanitized[key] = null;
-    } else if (typeof value === 'object') {
-      try {
-        sanitized[key] = JSON.parse(JSON.stringify(value));
-      } catch (e) {
-        sanitized[key] = '[Object: ' + (value.constructor?.name || 'Unknown') + ']';
-      }
-    } else if (
-      typeof value === 'string' ||
-      typeof value === 'number' ||
-      typeof value === 'boolean'
-    ) {
-      sanitized[key] = value;
     } else {
-      sanitized[key] = String(value);
+      sanitized[key] = sanitizeValue(value);
     }
   }
   return sanitized;
