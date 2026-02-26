@@ -102,7 +102,9 @@ function init() {
     hideOverlay();
     hideReactOverlay();
     hideVueOverlay();
-    cleanupAllOverlays();
+    // Remove mode selector popup
+    const modeSelector = document.getElementById('hovercomp-mode-selector');
+    if (modeSelector) modeSelector.remove();
     state.isPinned = false;
     state.pinnedPosition = null;
   });
