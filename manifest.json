@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HoverComp Dev Inspector",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "Hover-based component inspector with performance profiling and advanced tracking for React, Vue, and Svelte",
   "permissions": [],
   "action": {
